@@ -2,7 +2,7 @@
 
 All notable changes to `@reevit/core` will be documented in this file.
 
-## [0.1.0] - 2024-12-24
+## [0.1.0] - 2024-12-25
 
 ### Added
 - Initial release
