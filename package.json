@@ -22,6 +22,14 @@
   "keywords": ["reevit", "payments", "africa", "sdk"],
   "author": "Reevit",
   "license": "MIT",
+  "homepage": "https://github.com/Reevit-Platform/core#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Reevit-Platform/core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Reevit-Platform/core/issues"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
