@@ -86,7 +86,10 @@ const DEFAULT_TIMEOUT = 30000; // 30 seconds
  * Determines if a public key is for sandbox mode
  */
 export function isSandboxKey(publicKey: string): boolean {
-  return publicKey.startsWith('pk_test_') || publicKey.startsWith('pk_sandbox_');
+  return publicKey.startsWith('pk_test_') ||
+    publicKey.startsWith('pk_sandbox_') ||
+    publicKey.startsWith('pfk_test_') ||
+    publicKey.startsWith('pfk_sandbox_');
 }
 
 /**
