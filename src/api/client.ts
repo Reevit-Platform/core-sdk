@@ -138,7 +138,7 @@ export class ReevitAPIClient {
       'Content-Type': 'application/json',
       'X-Reevit-Key': this.publicKey,
       'X-Reevit-Client': '@reevit/core',
-      'X-Reevit-Client-Version': '0.2.3',
+      'X-Reevit-Client-Version': '0.2.5',
     };
 
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
