@@ -36,6 +36,7 @@ export interface PaymentIntentResponse {
   fee_amount: number;
   fee_currency: string;
   net_amount: number;
+  reference?: string;
 }
 
 export interface ConfirmPaymentRequest {
@@ -139,7 +140,7 @@ export class ReevitAPIClient {
       'Content-Type': 'application/json',
       'X-Reevit-Key': this.publicKey,
       'X-Reevit-Client': '@reevit/core',
-      'X-Reevit-Client-Version': '0.2.5',
+      'X-Reevit-Client-Version': '0.3.2',
     };
 
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
@@ -238,6 +239,13 @@ export class ReevitAPIClient {
    */
   async confirmPayment(paymentId: string): Promise<{ data?: PaymentDetailResponse; error?: PaymentError }> {
     return this.request<PaymentDetailResponse>('POST', `/v1/payments/${paymentId}/confirm`);
+  }
+
+  /**
+   * Confirms a payment intent using client secret (public endpoint)
+   */
+  async confirmPaymentIntent(paymentId: string, clientSecret: string): Promise<{ data?: PaymentDetailResponse; error?: PaymentError }> {
+    return this.request<PaymentDetailResponse>('POST', `/v1/payments/${paymentId}/confirm-intent?client_secret=${clientSecret}`);
   }
 
   /**

@@ -47,7 +47,13 @@ export function reevitReducer(state: ReevitState, action: ReevitAction): ReevitS
     case 'INIT_START':
       return { ...state, status: 'loading', error: null };
     case 'INIT_SUCCESS':
-      return { ...state, status: 'ready', paymentIntent: action.payload };
+      return {
+        ...state,
+        status: 'ready',
+        paymentIntent: action.payload,
+        selectedMethod:
+          action.payload.availableMethods?.length === 1 ? action.payload.availableMethods[0] : null,
+      };
     case 'INIT_ERROR':
       return { ...state, status: 'failed', error: action.payload };
     case 'SELECT_METHOD':

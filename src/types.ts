@@ -28,6 +28,8 @@ export interface ReevitCheckoutConfig {
   metadata?: Record<string, unknown>;
   /** Payment methods to display */
   paymentMethods?: PaymentMethod[];
+  /** Pre-created payment intent to use */
+  initialPaymentIntent?: PaymentIntent | any;
 }
 
 // Checkout callbacks
@@ -135,6 +137,8 @@ export interface PaymentIntent {
   id: string;
   /** Client secret for authenticating client-side operations */
   clientSecret: string;
+  /** PSP public key if available */
+  pspPublicKey?: string;
   /** Amount in smallest currency unit */
   amount: number;
   /** Currency code */
@@ -145,6 +149,8 @@ export interface PaymentIntent {
   recommendedPsp: PSPType;
   /** Available payment methods for this intent */
   availableMethods: PaymentMethod[];
+  /** Reference provided or generated */
+  reference?: string;
   /** Connection ID (from Reevit backend) */
   connectionId?: string;
   /** Provider name (from backend) */
