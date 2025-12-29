@@ -40,7 +40,7 @@ var API_BASE_URL_PRODUCTION = "https://api.reevit.io";
 var API_BASE_URL_SANDBOX = "https://sandbox-api.reevit.io";
 var DEFAULT_TIMEOUT = 3e4;
 function isSandboxKey(publicKey) {
-  return publicKey.startsWith("pk_test_") || publicKey.startsWith("pk_sandbox_");
+  return publicKey.startsWith("pk_test_") || publicKey.startsWith("pk_sandbox_") || publicKey.startsWith("pfk_test_") || publicKey.startsWith("pfk_sandbox_");
 }
 function createPaymentError(response, errorData) {
   return {
@@ -64,15 +64,19 @@ var ReevitAPIClient = class {
   async request(method, path, body) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Reevit-Key": this.publicKey,
+      "X-Reevit-Client": "@reevit/core",
+      "X-Reevit-Client-Version": "0.2.5"
+    };
+    if (method === "POST" || method === "PATCH" || method === "PUT") {
+      headers["Idempotency-Key"] = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    }
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${this.publicKey}`,
-          "X-Reevit-Client": "@reevit/core",
-          "X-Reevit-Client-Version": "0.1.0"
-        },
+        headers,
         body: body ? JSON.stringify(body) : void 0,
         signal: controller.signal
       });
@@ -116,13 +120,20 @@ var ReevitAPIClient = class {
    * Creates a payment intent
    */
   async createPaymentIntent(config, method, country = "GH") {
+    const metadata = { ...config.metadata };
+    if (config.email) {
+      metadata.customer_email = config.email;
+    }
+    if (config.phone) {
+      metadata.customer_phone = config.phone;
+    }
     const request = {
       amount: config.amount,
       currency: config.currency,
       method: this.mapPaymentMethod(method),
       country,
-      customer_id: config.metadata?.customerId,
-      metadata: config.metadata
+      customer_id: config.email || config.metadata?.customerId,
+      metadata
     };
     return this.request("POST", "/v1/payments/intents", request);
   }
@@ -137,6 +148,12 @@ var ReevitAPIClient = class {
    */
   async confirmPayment(paymentId) {
     return this.request("POST", `/v1/payments/${paymentId}/confirm`);
+  }
+  /**
+   * Confirms a payment intent using client secret (public endpoint)
+   */
+  async confirmPaymentIntent(paymentId, clientSecret) {
+    return this.request("POST", `/v1/payments/${paymentId}/confirm-intent?client_secret=${clientSecret}`);
   }
   /**
    * Cancels a payment intent
@@ -290,7 +307,12 @@ function reevitReducer(state, action) {
     case "INIT_START":
       return { ...state, status: "loading", error: null };
     case "INIT_SUCCESS":
-      return { ...state, status: "ready", paymentIntent: action.payload };
+      return {
+        ...state,
+        status: "ready",
+        paymentIntent: action.payload,
+        selectedMethod: action.payload.availableMethods?.length === 1 ? action.payload.availableMethods[0] : null
+      };
     case "INIT_ERROR":
       return { ...state, status: "failed", error: action.payload };
     case "SELECT_METHOD":

@@ -22,6 +22,8 @@ interface ReevitCheckoutConfig {
     metadata?: Record<string, unknown>;
     /** Payment methods to display */
     paymentMethods?: PaymentMethod[];
+    /** Pre-created payment intent to use */
+    initialPaymentIntent?: PaymentIntent | any;
 }
 interface ReevitCheckoutCallbacks {
     /** Called when payment is successful */
@@ -103,6 +105,8 @@ interface PaymentIntent {
     id: string;
     /** Client secret for authenticating client-side operations */
     clientSecret: string;
+    /** PSP public key if available */
+    pspPublicKey?: string;
     /** Amount in smallest currency unit */
     amount: number;
     /** Currency code */
@@ -113,6 +117,8 @@ interface PaymentIntent {
     recommendedPsp: PSPType;
     /** Available payment methods for this intent */
     availableMethods: PaymentMethod[];
+    /** Reference provided or generated */
+    reference?: string;
     /** Connection ID (from Reevit backend) */
     connectionId?: string;
     /** Provider name (from backend) */
@@ -155,11 +161,13 @@ interface PaymentIntentResponse {
     provider: string;
     status: string;
     client_secret: string;
+    psp_public_key: string;
     amount: number;
     currency: string;
     fee_amount: number;
     fee_currency: string;
     net_amount: number;
+    reference?: string;
 }
 interface ConfirmPaymentRequest {
     provider_ref_id: string;
@@ -226,6 +234,13 @@ declare class ReevitAPIClient {
      * Confirms a payment after PSP callback
      */
     confirmPayment(paymentId: string): Promise<{
+        data?: PaymentDetailResponse;
+        error?: PaymentError;
+    }>;
+    /**
+     * Confirms a payment intent using client secret (public endpoint)
+     */
+    confirmPaymentIntent(paymentId: string, clientSecret: string): Promise<{
         data?: PaymentDetailResponse;
         error?: PaymentError;
     }>;
