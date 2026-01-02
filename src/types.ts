@@ -10,6 +10,9 @@ export type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
 
 export type PSPType = 'paystack' | 'hubtel' | 'flutterwave' | 'stripe' | 'monnify' | 'mpesa';
 
+/** Payment source type - indicates where the payment originated from */
+export type PaymentSource = 'payment_link' | 'api' | 'subscription';
+
 // Checkout configuration
 export interface ReevitCheckoutConfig {
   /** Your Reevit public key (pk_live_xxx or pk_test_xxx) */
@@ -75,6 +78,12 @@ export interface PaymentResult {
   status: 'success' | 'pending';
   /** Any additional data from the PSP */
   metadata?: Record<string, unknown>;
+  /** Payment source type (payment_link, api, subscription) */
+  source?: PaymentSource;
+  /** ID of the source (payment link ID, subscription ID, etc.) */
+  sourceId?: string;
+  /** Human-readable description of the source (e.g., payment link name) */
+  sourceDescription?: string;
 }
 
 // Payment error
