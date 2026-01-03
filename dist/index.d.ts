@@ -5,6 +5,8 @@
 type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer';
 type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
 type PSPType = 'paystack' | 'hubtel' | 'flutterwave' | 'stripe' | 'monnify' | 'mpesa';
+/** Payment source type - indicates where the payment originated from */
+type PaymentSource = 'payment_link' | 'api' | 'subscription';
 interface ReevitCheckoutConfig {
     /** Your Reevit public key (pk_live_xxx or pk_test_xxx) */
     publicKey: string;
@@ -55,6 +57,12 @@ interface PaymentResult {
     status: 'success' | 'pending';
     /** Any additional data from the PSP */
     metadata?: Record<string, unknown>;
+    /** Payment source type (payment_link, api, subscription) */
+    source?: PaymentSource;
+    /** ID of the source (payment link ID, subscription ID, etc.) */
+    sourceId?: string;
+    /** Human-readable description of the source (e.g., payment link name) */
+    sourceDescription?: string;
 }
 interface PaymentError {
     /** Error code */
@@ -107,6 +115,15 @@ interface PaymentIntent {
     clientSecret: string;
     /** PSP public key if available */
     pspPublicKey?: string;
+    /** PSP-specific credentials for client-side checkout (e.g., Hubtel's merchantAccount, basicAuth) */
+    pspCredentials?: {
+        /** Hubtel merchant account number */
+        merchantAccount?: string | number;
+        /** Hubtel basic auth header value */
+        basicAuth?: string;
+        /** Any other PSP-specific credential fields */
+        [key: string]: unknown;
+    };
     /** Amount in smallest currency unit */
     amount: number;
     /** Currency code */
@@ -162,6 +179,11 @@ interface PaymentIntentResponse {
     status: string;
     client_secret: string;
     psp_public_key: string;
+    psp_credentials?: {
+        merchantAccount?: string | number;
+        basicAuth?: string;
+        [key: string]: unknown;
+    };
     amount: number;
     currency: string;
     fee_amount: number;
@@ -190,6 +212,12 @@ interface PaymentDetailResponse {
     metadata?: Record<string, unknown>;
     created_at: string;
     updated_at: string;
+    /** Payment source type (payment_link, api, subscription) */
+    source?: 'payment_link' | 'api' | 'subscription';
+    /** ID of the source (payment link ID, subscription ID, etc.) */
+    source_id?: string;
+    /** Human-readable description of the source (e.g., payment link name) */
+    source_description?: string;
 }
 interface APIErrorResponse {
     code: string;
@@ -344,4 +372,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };

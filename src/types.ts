@@ -148,6 +148,15 @@ export interface PaymentIntent {
   clientSecret: string;
   /** PSP public key if available */
   pspPublicKey?: string;
+  /** PSP-specific credentials for client-side checkout (e.g., Hubtel's merchantAccount, basicAuth) */
+  pspCredentials?: {
+    /** Hubtel merchant account number */
+    merchantAccount?: string | number;
+    /** Hubtel basic auth header value */
+    basicAuth?: string;
+    /** Any other PSP-specific credential fields */
+    [key: string]: unknown;
+  };
   /** Amount in smallest currency unit */
   amount: number;
   /** Currency code */

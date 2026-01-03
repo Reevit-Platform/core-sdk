@@ -31,7 +31,7 @@ var ReevitAPIClient = class {
       "Content-Type": "application/json",
       "X-Reevit-Key": this.publicKey,
       "X-Reevit-Client": "@reevit/core",
-      "X-Reevit-Client-Version": "0.2.5"
+      "X-Reevit-Client-Version": "0.3.2"
     };
     if (method === "POST" || method === "PATCH" || method === "PUT") {
       headers["Idempotency-Key"] = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
