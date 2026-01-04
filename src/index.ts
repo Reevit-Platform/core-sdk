@@ -31,6 +31,7 @@ export type {
   PSPConfig,
   PSPType,
   PaymentSource,
+  HubtelSessionResponse,
 } from './types';
 
 // Utilities

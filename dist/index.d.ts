@@ -119,7 +119,7 @@ interface PaymentIntent {
     pspCredentials?: {
         /** Hubtel merchant account number */
         merchantAccount?: string | number;
-        /** Hubtel basic auth header value */
+        /** Hubtel basic auth header value (deprecated - use hubtelSessionToken instead) */
         basicAuth?: string;
         /** Any other PSP-specific credential fields */
         [key: string]: unknown;
@@ -148,6 +148,16 @@ interface PaymentIntent {
     netAmount?: number;
     /** Additional metadata */
     metadata?: Record<string, unknown>;
+}
+interface HubtelSessionResponse {
+    /** Session token to use with Hubtel SDK */
+    token: string;
+    /** Merchant account number */
+    merchantAccount: string | number;
+    /** Token expiration time in seconds */
+    expiresInSeconds: number;
+    /** Unix timestamp when token expires */
+    expiresAt: number;
 }
 
 /**
@@ -280,6 +290,15 @@ declare class ReevitAPIClient {
         error?: PaymentError;
     }>;
     /**
+     * Creates a Hubtel session token for secure checkout
+     * Returns a short-lived token that contains Hubtel credentials
+     * Credentials are never exposed to the client directly
+     */
+    createHubtelSession(paymentId: string): Promise<{
+        data?: HubtelSessionResponse;
+        error?: PaymentError;
+    }>;
+    /**
      * Maps SDK payment method to backend format
      */
     private mapPaymentMethod;
@@ -372,4 +391,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };

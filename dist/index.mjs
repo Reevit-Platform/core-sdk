@@ -125,6 +125,14 @@ var ReevitAPIClient = class {
     return this.request("POST", `/v1/payments/${paymentId}/cancel`);
   }
   /**
+   * Creates a Hubtel session token for secure checkout
+   * Returns a short-lived token that contains Hubtel credentials
+   * Credentials are never exposed to the client directly
+   */
+  async createHubtelSession(paymentId) {
+    return this.request("POST", `/v1/payments/hubtel/sessions/${paymentId}`);
+  }
+  /**
    * Maps SDK payment method to backend format
    */
   mapPaymentMethod(method) {

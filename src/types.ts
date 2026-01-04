@@ -152,7 +152,7 @@ export interface PaymentIntent {
   pspCredentials?: {
     /** Hubtel merchant account number */
     merchantAccount?: string | number;
-    /** Hubtel basic auth header value */
+    /** Hubtel basic auth header value (deprecated - use hubtelSessionToken instead) */
     basicAuth?: string;
     /** Any other PSP-specific credential fields */
     [key: string]: unknown;
@@ -181,4 +181,16 @@ export interface PaymentIntent {
   netAmount?: number;
   /** Additional metadata */
   metadata?: Record<string, unknown>;
+}
+
+// Hubtel session token response (for secure credential handling)
+export interface HubtelSessionResponse {
+  /** Session token to use with Hubtel SDK */
+  token: string;
+  /** Merchant account number */
+  merchantAccount: string | number;
+  /** Token expiration time in seconds */
+  expiresInSeconds: number;
+  /** Unix timestamp when token expires */
+  expiresAt: number;
 }

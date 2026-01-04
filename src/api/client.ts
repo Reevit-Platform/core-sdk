@@ -4,7 +4,7 @@
  * Handles communication with the Reevit backend for payment operations.
  */
 
-import type { PaymentMethod, ReevitCheckoutConfig, PaymentError } from '../types';
+import type { PaymentMethod, ReevitCheckoutConfig, PaymentError, HubtelSessionResponse } from '../types';
 
 // API Response Types (matching backend handlers_payments.go)
 export interface CreatePaymentIntentRequest {
@@ -264,6 +264,15 @@ export class ReevitAPIClient {
    */
   async cancelPaymentIntent(paymentId: string): Promise<{ data?: PaymentDetailResponse; error?: PaymentError }> {
     return this.request<PaymentDetailResponse>('POST', `/v1/payments/${paymentId}/cancel`);
+  }
+
+  /**
+   * Creates a Hubtel session token for secure checkout
+   * Returns a short-lived token that contains Hubtel credentials
+   * Credentials are never exposed to the client directly
+   */
+  async createHubtelSession(paymentId: string): Promise<{ data?: HubtelSessionResponse; error?: PaymentError }> {
+    return this.request<HubtelSessionResponse>('POST', `/v1/payments/hubtel/sessions/${paymentId}`);
   }
 
   /**
