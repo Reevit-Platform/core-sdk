@@ -79,22 +79,44 @@ interface PaymentError {
 interface ReevitTheme {
     /** Primary brand color */
     primaryColor?: string;
+    /** Primary text color on brand surfaces */
+    primaryForegroundColor?: string;
     /** Background color */
     backgroundColor?: string;
+    /** Surface color for cards/panels */
+    surfaceColor?: string;
     /** Text color */
     textColor?: string;
+    /** Muted text color */
+    mutedTextColor?: string;
     /** Border radius for inputs and buttons */
     borderRadius?: string;
     /** Font family to use */
     fontFamily?: string;
     /** Whether to use dark mode */
     darkMode?: boolean;
+    /** Custom logo URL to display in checkout header */
+    logoUrl?: string;
+    /** PSP selector background color */
+    pspSelectorBgColor?: string;
+    /** PSP selector text color */
+    pspSelectorTextColor?: string;
+    /** PSP selector border color */
+    pspSelectorBorderColor?: string;
+    /** Use border-only style for PSP selector (no filled background) */
+    pspSelectorUseBorder?: boolean;
 }
 interface PSPConfig {
     id: string;
     name: string;
     supportedMethods: PaymentMethod[];
     supportedCurrencies: string[];
+}
+interface CheckoutProviderOption {
+    provider: string;
+    name: string;
+    methods: PaymentMethod[];
+    countries?: string[];
 }
 interface MobileMoneyFormData {
     phone: string;
@@ -148,6 +170,10 @@ interface PaymentIntent {
     netAmount?: number;
     /** Additional metadata */
     metadata?: Record<string, unknown>;
+    /** Available PSPs for this checkout session */
+    availableProviders?: CheckoutProviderOption[];
+    /** Brand theme from checkout settings */
+    branding?: ReevitTheme;
 }
 interface HubtelSessionResponse {
     /** Session token to use with Hubtel SDK */
@@ -176,6 +202,7 @@ interface CreatePaymentIntentRequest {
     description?: string;
     policy?: {
         prefer?: string[];
+        allowed_providers?: string[];
         max_amount?: number;
         blocked_bins?: string[];
         allowed_bins?: string[];
@@ -200,6 +227,13 @@ interface PaymentIntentResponse {
     fee_currency: string;
     net_amount: number;
     reference?: string;
+    available_psps?: Array<{
+        provider: string;
+        name: string;
+        methods: string[];
+        countries?: string[];
+    }>;
+    branding?: Record<string, unknown>;
 }
 interface ConfirmPaymentRequest {
     provider_ref_id: string;
@@ -257,7 +291,10 @@ declare class ReevitAPIClient {
     /**
      * Creates a payment intent
      */
-    createPaymentIntent(config: ReevitCheckoutConfig, method: PaymentMethod, country?: string): Promise<{
+    createPaymentIntent(config: ReevitCheckoutConfig, method: PaymentMethod, country?: string, options?: {
+        preferredProviders?: string[];
+        allowedProviders?: string[];
+    }): Promise<{
         data?: PaymentIntentResponse;
         error?: PaymentError;
     }>;
@@ -391,4 +428,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };

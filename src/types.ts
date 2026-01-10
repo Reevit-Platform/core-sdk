@@ -15,8 +15,8 @@ export type PaymentSource = 'payment_link' | 'api' | 'subscription';
 
 // Checkout configuration
 export interface ReevitCheckoutConfig {
-  /** Your Reevit public key (pk_live_xxx or pk_test_xxx) */
-  publicKey: string;
+  /** Your Reevit public key (required for API-created intents; omit for payment links) */
+  publicKey?: string;
   /** Amount in the smallest currency unit (e.g., pesewas for GHS) */
   amount: number;
   /** Currency code (e.g., 'GHS', 'NGN', 'USD') */
@@ -25,10 +25,16 @@ export interface ReevitCheckoutConfig {
   email?: string;
   /** Customer phone number (required for mobile money) */
   phone?: string;
+  /** Customer name (optional, used for payment links) */
+  customerName?: string;
   /** Unique reference for this transaction */
   reference?: string;
   /** Additional metadata to attach to the payment */
   metadata?: Record<string, unknown>;
+  /** Custom fields for payment links (if applicable) */
+  customFields?: Record<string, unknown>;
+  /** Payment link code (for public checkout flows) */
+  paymentLinkCode?: string;
   /** Payment methods to display */
   paymentMethods?: PaymentMethod[];
   /** Pre-created payment intent to use */
@@ -120,6 +126,16 @@ export interface ReevitTheme {
   fontFamily?: string;
   /** Whether to use dark mode */
   darkMode?: boolean;
+  /** Custom logo URL to display in checkout header */
+  logoUrl?: string;
+  /** PSP selector background color */
+  pspSelectorBgColor?: string;
+  /** PSP selector text color */
+  pspSelectorTextColor?: string;
+  /** PSP selector border color */
+  pspSelectorBorderColor?: string;
+  /** Use border-only style for PSP selector (no filled background) */
+  pspSelectorUseBorder?: boolean;
 }
 
 // PSP configuration (internal)
@@ -207,6 +223,8 @@ export interface HubtelSessionResponse {
   token: string;
   /** Merchant account number */
   merchantAccount: string | number;
+  /** Base64 basic auth for Hubtel checkout (exposes credentials) */
+  basicAuth?: string;
   /** Token expiration time in seconds */
   expiresInSeconds: number;
   /** Unix timestamp when token expires */

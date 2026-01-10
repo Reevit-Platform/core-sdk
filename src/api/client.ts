@@ -10,7 +10,7 @@ import type { PaymentMethod, ReevitCheckoutConfig, PaymentError, HubtelSessionRe
 export interface CreatePaymentIntentRequest {
   amount: number;
   currency: string;
-  method: string;
+  method?: string;
   country: string;
   customer_id?: string;
   metadata?: Record<string, unknown>;
@@ -91,7 +91,7 @@ export interface APIErrorResponse {
 // API Client configuration
 export interface ReevitAPIClientConfig {
   /** Your Reevit public key */
-  publicKey: string;
+  publicKey?: string;
   /** Base URL for the Reevit API (defaults to production) */
   baseUrl?: string;
   /** Request timeout in milliseconds */
@@ -136,8 +136,8 @@ export class ReevitAPIClient {
   private readonly timeout: number;
 
   constructor(config: ReevitAPIClientConfig) {
-    this.publicKey = config.publicKey;
-    this.baseUrl = config.baseUrl || (isSandboxKey(config.publicKey)
+    this.publicKey = config.publicKey || '';
+    this.baseUrl = config.baseUrl || (config.publicKey && isSandboxKey(config.publicKey)
       ? API_BASE_URL_SANDBOX
       : API_BASE_URL_PRODUCTION);
     this.timeout = config.timeout || DEFAULT_TIMEOUT;
@@ -157,10 +157,12 @@ export class ReevitAPIClient {
     // Generate headers with idempotency key for mutating requests
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-Reevit-Key': this.publicKey,
       'X-Reevit-Client': '@reevit/core',
       'X-Reevit-Client-Version': '0.3.2',
     };
+    if (this.publicKey) {
+      headers['X-Reevit-Key'] = this.publicKey;
+    }
 
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
       headers['Idempotency-Key'] = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -222,7 +224,7 @@ export class ReevitAPIClient {
    */
   async createPaymentIntent(
     config: ReevitCheckoutConfig,
-    method: PaymentMethod,
+    method?: PaymentMethod,
     country: string = 'GH',
     options?: { preferredProviders?: string[]; allowedProviders?: string[] }
   ): Promise<{ data?: PaymentIntentResponse; error?: PaymentError }> {
@@ -238,11 +240,14 @@ export class ReevitAPIClient {
     const request: CreatePaymentIntentRequest = {
       amount: config.amount,
       currency: config.currency,
-      method: this.mapPaymentMethod(method),
       country,
       customer_id: config.email || (config.metadata?.customerId as string | undefined),
       metadata,
     };
+
+    if (method) {
+      request.method = this.mapPaymentMethod(method);
+    }
 
     if (options?.preferredProviders?.length || options?.allowedProviders?.length) {
       request.policy = {
@@ -287,8 +292,12 @@ export class ReevitAPIClient {
    * Returns a short-lived token that contains Hubtel credentials
    * Credentials are never exposed to the client directly
    */
-  async createHubtelSession(paymentId: string): Promise<{ data?: HubtelSessionResponse; error?: PaymentError }> {
-    return this.request<HubtelSessionResponse>('POST', `/v1/payments/hubtel/sessions/${paymentId}`);
+  async createHubtelSession(
+    paymentId: string,
+    clientSecret?: string
+  ): Promise<{ data?: HubtelSessionResponse; error?: PaymentError }> {
+    const query = clientSecret ? `?client_secret=${encodeURIComponent(clientSecret)}` : '';
+    return this.request<HubtelSessionResponse>('POST', `/v1/payments/hubtel/sessions/${paymentId}${query}`);
   }
 
   /**

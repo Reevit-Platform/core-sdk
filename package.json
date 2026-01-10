@@ -1,6 +1,6 @@
 {
   "name": "@reevit/core",
-  "version": "0.4.2",
+  "version": "0.4.6",
   "description": "Core utilities and API client for Reevit payment SDKs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

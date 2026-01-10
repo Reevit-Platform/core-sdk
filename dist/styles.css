@@ -20,12 +20,13 @@
   --reevit-success: oklch(0.696 0.17 162.48);
   --reevit-error: oklch(0.577 0.245 27.325);
   --reevit-warning: oklch(0.828 0.189 84.429);
-  --reevit-radius: 0.625rem;
+  --reevit-radius: 0.75rem;
   --reevit-radius-sm: 0.5rem;
-  --reevit-radius-lg: 0.75rem;
+  --reevit-radius-lg: 1.25rem;
   --reevit-font: 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
-  --reevit-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
-  --reevit-shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  --reevit-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  --reevit-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --reevit-shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 /* Dark mode support */
@@ -73,7 +74,7 @@
   border: 1px solid var(--reevit-border);
   box-shadow: var(--reevit-shadow);
   width: 100%;
-  max-width: 400px;
+  max-width: 380px;
   max-height: 90vh;
   overflow: hidden;
   display: flex;
