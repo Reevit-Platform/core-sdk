@@ -25,6 +25,7 @@ export type {
   PaymentResult,
   PaymentError,
   ReevitTheme,
+  CheckoutProviderOption,
   MobileMoneyFormData,
   CardFormData,
   PaymentIntent,
