@@ -6,7 +6,7 @@
 // Payment method types
 export type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer' | 'apple_pay' | 'google_pay';
 
-export type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
+export type MobileMoneyNetwork = 'mtn' | 'telecel' | 'airteltigo';
 
 export type PSPType = 'paystack' | 'hubtel' | 'flutterwave' | 'stripe' | 'monnify' | 'mpesa';
 
