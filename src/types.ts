@@ -4,7 +4,7 @@
  */
 
 // Payment method types
-export type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer';
+export type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer' | 'apple_pay' | 'google_pay';
 
 export type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
 
@@ -138,6 +138,14 @@ export interface ReevitTheme {
   pspSelectorBorderColor?: string;
   /** Use border-only style for PSP selector (no filled background) */
   pspSelectorUseBorder?: boolean;
+  /** Selected PSP background color */
+  selectedBackgroundColor?: string;
+  /** Selected PSP primary text color */
+  selectedTextColor?: string;
+  /** Selected PSP description/muted text color */
+  selectedDescriptionColor?: string;
+  /** Selected PSP border color */
+  selectedBorderColor?: string;
 }
 
 // PSP configuration (internal)
@@ -194,7 +202,7 @@ export interface PaymentIntent {
   /** Currency code */
   currency: string;
   /** Payment status */
-  status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
+  status: 'pending' | 'requires_action' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'cancelled';
   /** Recommended PSP based on routing rules */
   recommendedPsp: PSPType;
   /** Available payment methods for this intent */

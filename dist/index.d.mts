@@ -2,14 +2,14 @@
  * Reevit Core Types
  * Shared type definitions for all Reevit SDKs
  */
-type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer';
+type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer' | 'apple_pay' | 'google_pay';
 type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
 type PSPType = 'paystack' | 'hubtel' | 'flutterwave' | 'stripe' | 'monnify' | 'mpesa';
 /** Payment source type - indicates where the payment originated from */
 type PaymentSource = 'payment_link' | 'api' | 'subscription';
 interface ReevitCheckoutConfig {
-    /** Your Reevit public key (pk_live_xxx or pk_test_xxx) */
-    publicKey: string;
+    /** Your Reevit public key (required for API-created intents; omit for payment links) */
+    publicKey?: string;
     /** Amount in the smallest currency unit (e.g., pesewas for GHS) */
     amount: number;
     /** Currency code (e.g., 'GHS', 'NGN', 'USD') */
@@ -18,10 +18,16 @@ interface ReevitCheckoutConfig {
     email?: string;
     /** Customer phone number (required for mobile money) */
     phone?: string;
+    /** Customer name (optional, used for payment links) */
+    customerName?: string;
     /** Unique reference for this transaction */
     reference?: string;
     /** Additional metadata to attach to the payment */
     metadata?: Record<string, unknown>;
+    /** Custom fields for payment links (if applicable) */
+    customFields?: Record<string, unknown>;
+    /** Payment link code (for public checkout flows) */
+    paymentLinkCode?: string;
     /** Payment methods to display */
     paymentMethods?: PaymentMethod[];
     /** Pre-created payment intent to use */
@@ -97,6 +103,8 @@ interface ReevitTheme {
     darkMode?: boolean;
     /** Custom logo URL to display in checkout header */
     logoUrl?: string;
+    /** Company or organization name to display in checkout header */
+    companyName?: string;
     /** PSP selector background color */
     pspSelectorBgColor?: string;
     /** PSP selector text color */
@@ -105,6 +113,14 @@ interface ReevitTheme {
     pspSelectorBorderColor?: string;
     /** Use border-only style for PSP selector (no filled background) */
     pspSelectorUseBorder?: boolean;
+    /** Selected PSP background color */
+    selectedBackgroundColor?: string;
+    /** Selected PSP primary text color */
+    selectedTextColor?: string;
+    /** Selected PSP description/muted text color */
+    selectedDescriptionColor?: string;
+    /** Selected PSP border color */
+    selectedBorderColor?: string;
 }
 interface PSPConfig {
     id: string;
@@ -151,7 +167,7 @@ interface PaymentIntent {
     /** Currency code */
     currency: string;
     /** Payment status */
-    status: 'pending' | 'processing' | 'succeeded' | 'failed' | 'cancelled';
+    status: 'pending' | 'requires_action' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'cancelled';
     /** Recommended PSP based on routing rules */
     recommendedPsp: PSPType;
     /** Available payment methods for this intent */
@@ -180,6 +196,8 @@ interface HubtelSessionResponse {
     token: string;
     /** Merchant account number */
     merchantAccount: string | number;
+    /** Base64 basic auth for Hubtel checkout (exposes credentials) */
+    basicAuth?: string;
     /** Token expiration time in seconds */
     expiresInSeconds: number;
     /** Unix timestamp when token expires */
@@ -195,7 +213,7 @@ interface HubtelSessionResponse {
 interface CreatePaymentIntentRequest {
     amount: number;
     currency: string;
-    method: string;
+    method?: string;
     country: string;
     customer_id?: string;
     metadata?: Record<string, unknown>;
@@ -270,7 +288,7 @@ interface APIErrorResponse {
 }
 interface ReevitAPIClientConfig {
     /** Your Reevit public key */
-    publicKey: string;
+    publicKey?: string;
     /** Base URL for the Reevit API (defaults to production) */
     baseUrl?: string;
     /** Request timeout in milliseconds */
@@ -291,7 +309,7 @@ declare class ReevitAPIClient {
     /**
      * Creates a payment intent
      */
-    createPaymentIntent(config: ReevitCheckoutConfig, method: PaymentMethod, country?: string, options?: {
+    createPaymentIntent(config: ReevitCheckoutConfig, method?: PaymentMethod, country?: string, options?: {
         preferredProviders?: string[];
         allowedProviders?: string[];
     }): Promise<{
@@ -331,7 +349,7 @@ declare class ReevitAPIClient {
      * Returns a short-lived token that contains Hubtel credentials
      * Credentials are never exposed to the client directly
      */
-    createHubtelSession(paymentId: string): Promise<{
+    createHubtelSession(paymentId: string, clientSecret?: string): Promise<{
         data?: HubtelSessionResponse;
         error?: PaymentError;
     }>;

@@ -1,6 +1,6 @@
 {
   "name": "@reevit/core",
-  "version": "0.4.7",
+  "version": "0.5.0",
   "description": "Core utilities and API client for Reevit payment SDKs",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -17,7 +17,8 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": ["reevit", "payments", "africa", "sdk"],
   "author": "Reevit",

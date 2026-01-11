@@ -54,8 +54,8 @@ function createPaymentError(response, errorData) {
 }
 var ReevitAPIClient = class {
   constructor(config) {
-    this.publicKey = config.publicKey;
-    this.baseUrl = config.baseUrl || (isSandboxKey(config.publicKey) ? API_BASE_URL_SANDBOX : API_BASE_URL_PRODUCTION);
+    this.publicKey = config.publicKey || "";
+    this.baseUrl = config.baseUrl || (config.publicKey && isSandboxKey(config.publicKey) ? API_BASE_URL_SANDBOX : API_BASE_URL_PRODUCTION);
     this.timeout = config.timeout || DEFAULT_TIMEOUT;
   }
   /**
@@ -66,10 +66,12 @@ var ReevitAPIClient = class {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
     const headers = {
       "Content-Type": "application/json",
-      "X-Reevit-Key": this.publicKey,
       "X-Reevit-Client": "@reevit/core",
       "X-Reevit-Client-Version": "0.3.2"
     };
+    if (this.publicKey) {
+      headers["X-Reevit-Key"] = this.publicKey;
+    }
     if (method === "POST" || method === "PATCH" || method === "PUT") {
       headers["Idempotency-Key"] = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     }
@@ -130,11 +132,13 @@ var ReevitAPIClient = class {
     const request = {
       amount: config.amount,
       currency: config.currency,
-      method: this.mapPaymentMethod(method),
       country,
       customer_id: config.email || config.metadata?.customerId,
       metadata
     };
+    if (method) {
+      request.method = this.mapPaymentMethod(method);
+    }
     if (options?.preferredProviders?.length || options?.allowedProviders?.length) {
       request.policy = {
         prefer: options?.preferredProviders,
@@ -172,8 +176,9 @@ var ReevitAPIClient = class {
    * Returns a short-lived token that contains Hubtel credentials
    * Credentials are never exposed to the client directly
    */
-  async createHubtelSession(paymentId) {
-    return this.request("POST", `/v1/payments/hubtel/sessions/${paymentId}`);
+  async createHubtelSession(paymentId, clientSecret) {
+    const query = clientSecret ? `?client_secret=${encodeURIComponent(clientSecret)}` : "";
+    return this.request("POST", `/v1/payments/hubtel/sessions/${paymentId}${query}`);
   }
   /**
    * Maps SDK payment method to backend format

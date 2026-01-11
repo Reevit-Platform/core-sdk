@@ -13,7 +13,7 @@ npm install @reevit/core
 - **ReevitAPIClient**: A lightweight, promise-based client for interacting with the Reevit backend.
 - **State Machine**: Framework-agnostic logic for managing checkout flows.
 - **Utilities**: Amount formatting, phone validation, network detection, and more.
-- **Types**: Comprehensive TypeScript definitions for the entire Reevit ecosystem.
+- **Types**: Comprehensive TypeScript definitions for the entire Reevit ecosystem (Card, Mobile Money, Bank Transfer, Apple Pay, Google Pay).
 - **Styles**: Shared CSS for the "Unified Payment Widget" appearance.
 
 ## Usage (Low-level API)
