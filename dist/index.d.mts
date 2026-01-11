@@ -3,7 +3,7 @@
  * Shared type definitions for all Reevit SDKs
  */
 type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer' | 'apple_pay' | 'google_pay';
-type MobileMoneyNetwork = 'mtn' | 'vodafone' | 'airteltigo';
+type MobileMoneyNetwork = 'mtn' | 'telecel' | 'airteltigo';
 type PSPType = 'paystack' | 'hubtel' | 'flutterwave' | 'stripe' | 'monnify' | 'mpesa';
 /** Payment source type - indicates where the payment originated from */
 type PaymentSource = 'payment_link' | 'api' | 'subscription';

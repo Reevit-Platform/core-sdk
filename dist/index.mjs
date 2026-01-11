@@ -228,10 +228,10 @@ function detectNetwork(phone) {
     prefix = digits.slice(0, 2);
   }
   const mtnPrefixes = ["24", "25", "53", "54", "55", "59"];
-  const vodafonePrefixes = ["20", "50"];
+  const telecelPrefixes = ["20", "50"];
   const airteltigoPrefixes = ["26", "27", "56", "57"];
   if (mtnPrefixes.includes(prefix)) return "mtn";
-  if (vodafonePrefixes.includes(prefix)) return "vodafone";
+  if (telecelPrefixes.includes(prefix)) return "telecel";
   if (airteltigoPrefixes.includes(prefix)) return "airteltigo";
   return null;
 }
