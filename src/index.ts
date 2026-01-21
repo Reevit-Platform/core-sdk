@@ -7,6 +7,7 @@
 export {
   ReevitAPIClient,
   createReevitClient,
+  generateIdempotencyKey,
   type ReevitAPIClientConfig,
   type CreatePaymentIntentRequest,
   type PaymentIntentResponse,

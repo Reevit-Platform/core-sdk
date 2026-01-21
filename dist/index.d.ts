@@ -83,12 +83,18 @@ interface PaymentError {
     details?: Record<string, unknown>;
 }
 interface ReevitTheme {
-    /** Primary brand color */
+    /** Primary brand color (main text color) */
     primaryColor?: string;
-    /** Primary text color on brand surfaces */
+    /** Primary text color on brand surfaces (description/secondary text) */
     primaryForegroundColor?: string;
+    /** Button background color */
+    buttonBackgroundColor?: string;
+    /** Button text color */
+    buttonTextColor?: string;
     /** Background color */
     backgroundColor?: string;
+    /** Border color for borders and dividers */
+    borderColor?: string;
     /** Surface color for cards/panels */
     surfaceColor?: string;
     /** Text color */
@@ -174,6 +180,8 @@ interface PaymentIntent {
     availableMethods: PaymentMethod[];
     /** Reference provided or generated */
     reference?: string;
+    /** Organization ID (from Reevit backend, required for webhook routing) */
+    orgId?: string;
     /** Connection ID (from Reevit backend) */
     connectionId?: string;
     /** Provider name (from backend) */
@@ -229,6 +237,7 @@ interface CreatePaymentIntentRequest {
 }
 interface PaymentIntentResponse {
     id: string;
+    org_id?: string;
     connection_id: string;
     provider: string;
     status: string;
@@ -295,6 +304,12 @@ interface ReevitAPIClientConfig {
     timeout?: number;
 }
 /**
+ * Generates a deterministic idempotency key based on input parameters
+ * Uses a simple hash function suitable for browser environments
+ * Exported for use by SDK hooks (e.g., payment link flows)
+ */
+declare function generateIdempotencyKey(params: Record<string, unknown>): string;
+/**
  * Reevit API Client
  */
 declare class ReevitAPIClient {
@@ -304,6 +319,7 @@ declare class ReevitAPIClient {
     constructor(config: ReevitAPIClientConfig);
     /**
      * Makes an authenticated API request
+     * @param idempotencyKey Optional deterministic idempotency key for the request
      */
     private request;
     /**
@@ -446,4 +462,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateReference, reevitReducer, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, reevitReducer, validatePhone };

@@ -108,12 +108,18 @@ export interface PaymentError {
 
 // Theme customization
 export interface ReevitTheme {
-  /** Primary brand color */
+  /** Primary brand color (main text color) */
   primaryColor?: string;
-  /** Primary text color on brand surfaces */
+  /** Primary text color on brand surfaces (description/secondary text) */
   primaryForegroundColor?: string;
+  /** Button background color */
+  buttonBackgroundColor?: string;
+  /** Button text color */
+  buttonTextColor?: string;
   /** Background color */
   backgroundColor?: string;
+  /** Border color for borders and dividers */
+  borderColor?: string;
   /** Surface color for cards/panels */
   surfaceColor?: string;
   /** Text color */
@@ -209,6 +215,8 @@ export interface PaymentIntent {
   availableMethods: PaymentMethod[];
   /** Reference provided or generated */
   reference?: string;
+  /** Organization ID (from Reevit backend, required for webhook routing) */
+  orgId?: string;
   /** Connection ID (from Reevit backend) */
   connectionId?: string;
   /** Provider name (from backend) */

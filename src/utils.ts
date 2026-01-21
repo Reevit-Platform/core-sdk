@@ -116,34 +116,56 @@ export function detectNetwork(phone: string): MobileMoneyNetwork | null {
 export function createThemeVariables(theme: ReevitTheme): Record<string, string> {
   const variables: Record<string, string> = {};
 
+  // Primary color = main text color
   if (theme.primaryColor) {
-    variables['--reevit-primary'] = theme.primaryColor;
-    if (theme.primaryForegroundColor) {
-      variables['--reevit-primary-foreground'] = theme.primaryForegroundColor;
-    } else {
-      const contrast = getContrastingColor(theme.primaryColor);
-      if (contrast) {
-        variables['--reevit-primary-foreground'] = contrast;
-      }
-    }
+    variables['--reevit-text'] = theme.primaryColor;
   }
+
+  // Primary foreground = description/secondary text color
+  if (theme.primaryForegroundColor) {
+    variables['--reevit-text-secondary'] = theme.primaryForegroundColor;
+    variables['--reevit-muted'] = theme.primaryForegroundColor;
+  }
+
+  // Button colors
+  if (theme.buttonBackgroundColor) {
+    variables['--reevit-primary'] = theme.buttonBackgroundColor;
+    variables['--reevit-primary-hover'] = theme.buttonBackgroundColor;
+  }
+  if (theme.buttonTextColor) {
+    variables['--reevit-primary-foreground'] = theme.buttonTextColor;
+  }
+
+  // Background and surface colors
   if (theme.backgroundColor) {
     variables['--reevit-background'] = theme.backgroundColor;
+    variables['--reevit-surface'] = theme.backgroundColor;
   }
   if (theme.surfaceColor) {
     variables['--reevit-surface'] = theme.surfaceColor;
   }
+
+  // Border color
+  if (theme.borderColor) {
+    variables['--reevit-border'] = theme.borderColor;
+  }
+
+  // Legacy text color support
   if (theme.textColor) {
     variables['--reevit-text'] = theme.textColor;
   }
   if (theme.mutedTextColor) {
     variables['--reevit-text-secondary'] = theme.mutedTextColor;
   }
+
+  // Border radius
   if (theme.borderRadius) {
     variables['--reevit-radius'] = theme.borderRadius;
     variables['--reevit-radius-sm'] = theme.borderRadius;
     variables['--reevit-radius-lg'] = theme.borderRadius;
   }
+
+  // Font family
   if (theme.fontFamily) {
     variables['--reevit-font'] = theme.fontFamily;
   }

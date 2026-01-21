@@ -29,6 +29,7 @@ __export(index_exports, {
   detectNetwork: () => detectNetwork,
   formatAmount: () => formatAmount,
   formatPhone: () => formatPhone,
+  generateIdempotencyKey: () => generateIdempotencyKey,
   generateReference: () => generateReference,
   reevitReducer: () => reevitReducer,
   validatePhone: () => validatePhone
@@ -52,6 +53,18 @@ function createPaymentError(response, errorData) {
     }
   };
 }
+function generateIdempotencyKey(params) {
+  const sortedKeys = Object.keys(params).sort();
+  const stableString = sortedKeys.map((key) => `${key}:${JSON.stringify(params[key])}`).join("|");
+  let hash = 5381;
+  for (let i = 0; i < stableString.length; i++) {
+    hash = (hash << 5) + hash + stableString.charCodeAt(i);
+    hash = hash & hash;
+  }
+  const hashHex = (hash >>> 0).toString(16);
+  const timeBucket = Math.floor(Date.now() / (5 * 60 * 1e3));
+  return `reevit_${timeBucket}_${hashHex}`;
+}
 var ReevitAPIClient = class {
   constructor(config) {
     this.publicKey = config.publicKey || "";
@@ -60,8 +73,9 @@ var ReevitAPIClient = class {
   }
   /**
    * Makes an authenticated API request
+   * @param idempotencyKey Optional deterministic idempotency key for the request
    */
-  async request(method, path, body) {
+  async request(method, path, body, idempotencyKey) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
     const headers = {
@@ -73,7 +87,7 @@ var ReevitAPIClient = class {
       headers["X-Reevit-Key"] = this.publicKey;
     }
     if (method === "POST" || method === "PATCH" || method === "PUT") {
-      headers["Idempotency-Key"] = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      headers["Idempotency-Key"] = idempotencyKey || (body ? generateIdempotencyKey(body) : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`);
     }
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
@@ -145,7 +159,16 @@ var ReevitAPIClient = class {
         allowed_providers: options?.allowedProviders
       };
     }
-    return this.request("POST", "/v1/payments/intents", request);
+    const idempotencyKey = generateIdempotencyKey({
+      amount: config.amount,
+      currency: config.currency,
+      customer: config.email || config.metadata?.customerId || "",
+      reference: config.reference || "",
+      method: method || "",
+      provider: options?.preferredProviders?.[0] || options?.allowedProviders?.[0] || "",
+      publicKey: this.publicKey
+    });
+    return this.request("POST", "/v1/payments/intents", request, idempotencyKey);
   }
   /**
    * Retrieves a payment intent by ID
@@ -275,21 +298,28 @@ function detectNetwork(phone) {
 function createThemeVariables(theme) {
   const variables = {};
   if (theme.primaryColor) {
-    variables["--reevit-primary"] = theme.primaryColor;
-    if (theme.primaryForegroundColor) {
-      variables["--reevit-primary-foreground"] = theme.primaryForegroundColor;
-    } else {
-      const contrast = getContrastingColor(theme.primaryColor);
-      if (contrast) {
-        variables["--reevit-primary-foreground"] = contrast;
-      }
-    }
+    variables["--reevit-text"] = theme.primaryColor;
+  }
+  if (theme.primaryForegroundColor) {
+    variables["--reevit-text-secondary"] = theme.primaryForegroundColor;
+    variables["--reevit-muted"] = theme.primaryForegroundColor;
+  }
+  if (theme.buttonBackgroundColor) {
+    variables["--reevit-primary"] = theme.buttonBackgroundColor;
+    variables["--reevit-primary-hover"] = theme.buttonBackgroundColor;
+  }
+  if (theme.buttonTextColor) {
+    variables["--reevit-primary-foreground"] = theme.buttonTextColor;
   }
   if (theme.backgroundColor) {
     variables["--reevit-background"] = theme.backgroundColor;
+    variables["--reevit-surface"] = theme.backgroundColor;
   }
   if (theme.surfaceColor) {
     variables["--reevit-surface"] = theme.surfaceColor;
+  }
+  if (theme.borderColor) {
+    variables["--reevit-border"] = theme.borderColor;
   }
   if (theme.textColor) {
     variables["--reevit-text"] = theme.textColor;
@@ -306,24 +336,6 @@ function createThemeVariables(theme) {
     variables["--reevit-font"] = theme.fontFamily;
   }
   return variables;
-}
-function getContrastingColor(color) {
-  const hex = color.trim();
-  if (!hex.startsWith("#")) {
-    return null;
-  }
-  const normalized = hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex;
-  if (normalized.length !== 7) {
-    return null;
-  }
-  const r = parseInt(normalized.slice(1, 3), 16);
-  const g = parseInt(normalized.slice(3, 5), 16);
-  const b = parseInt(normalized.slice(5, 7), 16);
-  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
-    return null;
-  }
-  const brightness = (r * 299 + g * 587 + b * 114) / 1e3;
-  return brightness >= 140 ? "#0b1120" : "#ffffff";
 }
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -395,6 +407,7 @@ function reevitReducer(state, action) {
   detectNetwork,
   formatAmount,
   formatPhone,
+  generateIdempotencyKey,
   generateReference,
   reevitReducer,
   validatePhone
