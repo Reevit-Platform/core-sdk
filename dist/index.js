@@ -21,6 +21,9 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var index_exports = {};
 __export(index_exports, {
   ReevitAPIClient: () => ReevitAPIClient,
+  cacheIntentPromise: () => cacheIntentPromise,
+  cacheIntentResponse: () => cacheIntentResponse,
+  clearIntentCacheEntry: () => clearIntentCacheEntry,
   cn: () => cn,
   createInitialState: () => createInitialState,
   createReevitClient: () => createReevitClient,
@@ -31,7 +34,9 @@ __export(index_exports, {
   formatPhone: () => formatPhone,
   generateIdempotencyKey: () => generateIdempotencyKey,
   generateReference: () => generateReference,
+  getIntentCacheEntry: () => getIntentCacheEntry,
   reevitReducer: () => reevitReducer,
+  resolveIntentIdentity: () => resolveIntentIdentity,
   validatePhone: () => validatePhone
 });
 module.exports = __toCommonJS(index_exports);
@@ -81,7 +86,7 @@ var ReevitAPIClient = class {
     const headers = {
       "Content-Type": "application/json",
       "X-Reevit-Client": "@reevit/core",
-      "X-Reevit-Client-Version": "0.3.2"
+      "X-Reevit-Client-Version": "0.5.9"
     };
     if (this.publicKey) {
       headers["X-Reevit-Key"] = this.publicKey;
@@ -159,7 +164,7 @@ var ReevitAPIClient = class {
         allowed_providers: options?.allowedProviders
       };
     }
-    const idempotencyKey = generateIdempotencyKey({
+    const idempotencyKey = config.idempotencyKey || generateIdempotencyKey({
       amount: config.amount,
       currency: config.currency,
       customer: config.email || config.metadata?.customerId || "",
@@ -357,6 +362,82 @@ function detectCountryFromCurrency(currency) {
   return currencyToCountry[currency.toUpperCase()] || "GH";
 }
 
+// src/intent.ts
+var INTENT_CACHE_TTL_MS = 10 * 60 * 1e3;
+var intentCache = /* @__PURE__ */ new Map();
+function pruneIntentCache(now = Date.now()) {
+  for (const [key, entry] of intentCache) {
+    if (entry.expiresAt <= now) {
+      intentCache.delete(key);
+    }
+  }
+}
+function getIntentCacheEntryInternal(key) {
+  const entry = intentCache.get(key);
+  if (!entry) {
+    return void 0;
+  }
+  if (entry.expiresAt <= Date.now()) {
+    intentCache.delete(key);
+    return void 0;
+  }
+  return entry;
+}
+function setIntentCacheEntryInternal(key, update) {
+  const now = Date.now();
+  const existing = getIntentCacheEntryInternal(key);
+  const next = {
+    ...existing,
+    ...update,
+    expiresAt: now + INTENT_CACHE_TTL_MS
+  };
+  intentCache.set(key, next);
+  return next;
+}
+function buildIdempotencyPayload(options) {
+  const { config, method, preferredProvider, allowedProviders, publicKey } = options;
+  const payload = {
+    amount: config.amount,
+    currency: config.currency,
+    email: config.email || "",
+    phone: config.phone || "",
+    customerName: config.customerName || "",
+    paymentLinkCode: config.paymentLinkCode || "",
+    paymentMethods: config.paymentMethods || [],
+    metadata: config.metadata || {},
+    customFields: config.customFields || {},
+    method: method || "",
+    preferredProvider: preferredProvider || "",
+    allowedProviders: allowedProviders || [],
+    publicKey: publicKey || config.publicKey || ""
+  };
+  if (config.reference) {
+    payload.reference = config.reference;
+  }
+  return payload;
+}
+function resolveIntentIdentity(options) {
+  pruneIntentCache();
+  const idempotencyKey = options.config.idempotencyKey || generateIdempotencyKey(buildIdempotencyPayload(options));
+  const existing = getIntentCacheEntryInternal(idempotencyKey);
+  const reference = options.config.reference || existing?.reference || generateReference();
+  const cacheEntry = setIntentCacheEntryInternal(idempotencyKey, { reference });
+  return { idempotencyKey, reference, cacheEntry };
+}
+function getIntentCacheEntry(idempotencyKey) {
+  pruneIntentCache();
+  return getIntentCacheEntryInternal(idempotencyKey);
+}
+function cacheIntentPromise(idempotencyKey, promise) {
+  return setIntentCacheEntryInternal(idempotencyKey, { promise });
+}
+function cacheIntentResponse(idempotencyKey, response) {
+  return setIntentCacheEntryInternal(idempotencyKey, { response, promise: void 0 });
+}
+function clearIntentCacheEntry(idempotencyKey) {
+  intentCache.delete(idempotencyKey);
+}
+
 // src/state.ts
 function createInitialState() {
   return {
@@ -399,6 +480,9 @@ function reevitReducer(state, action) {
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ReevitAPIClient,
+  cacheIntentPromise,
+  cacheIntentResponse,
+  clearIntentCacheEntry,
   cn,
   createInitialState,
   createReevitClient,
@@ -409,7 +493,9 @@ function reevitReducer(state, action) {
   formatPhone,
   generateIdempotencyKey,
   generateReference,
+  getIntentCacheEntry,
   reevitReducer,
+  resolveIntentIdentity,
   validatePhone
 });
 //# sourceMappingURL=index.js.map

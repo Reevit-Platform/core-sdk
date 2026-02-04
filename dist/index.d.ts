@@ -22,6 +22,8 @@ interface ReevitCheckoutConfig {
     customerName?: string;
     /** Unique reference for this transaction */
     reference?: string;
+    /** Optional idempotency key to safely retry or dedupe intent creation */
+    idempotencyKey?: string;
     /** Additional metadata to attach to the payment */
     metadata?: Record<string, unknown>;
     /** Custom fields for payment links (if applicable) */
@@ -418,6 +420,33 @@ declare function cn(...classes: (string | boolean | undefined | null)[]): string
 declare function detectCountryFromCurrency(currency: string): string;
 
 /**
+ * Intent identity + cache helpers
+ */
+
+interface IntentIdentityOptions {
+    config: ReevitCheckoutConfig;
+    method?: PaymentMethod;
+    preferredProvider?: string;
+    allowedProviders?: string[];
+    publicKey?: string;
+}
+interface IntentCacheEntry {
+    promise?: Promise<PaymentIntentResponse>;
+    response?: PaymentIntentResponse;
+    expiresAt: number;
+    reference?: string;
+}
+declare function resolveIntentIdentity(options: IntentIdentityOptions): {
+    idempotencyKey: string;
+    reference: string;
+    cacheEntry?: IntentCacheEntry;
+};
+declare function getIntentCacheEntry(idempotencyKey: string): IntentCacheEntry | undefined;
+declare function cacheIntentPromise(idempotencyKey: string, promise: Promise<PaymentIntentResponse>): IntentCacheEntry;
+declare function cacheIntentResponse(idempotencyKey: string, response: PaymentIntentResponse): IntentCacheEntry;
+declare function clearIntentCacheEntry(idempotencyKey: string): void;
+
+/**
  * Reevit State Machine
  * Shared state management logic for all SDKs
  */
@@ -462,4 +491,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, reevitReducer, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type IntentCacheEntry, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cacheIntentPromise, cacheIntentResponse, clearIntentCacheEntry, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, getIntentCacheEntry, reevitReducer, resolveIntentIdentity, validatePhone };
