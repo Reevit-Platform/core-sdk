@@ -48,6 +48,16 @@ export {
   cn,
 } from './utils';
 
+// Intent identity + cache helpers
+export {
+  resolveIntentIdentity,
+  getIntentCacheEntry,
+  cacheIntentPromise,
+  cacheIntentResponse,
+  clearIntentCacheEntry,
+  type IntentCacheEntry,
+} from './intent';
+
 // State machine helpers
 export {
   createInitialState,
