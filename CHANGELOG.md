@@ -2,6 +2,13 @@
 
 All notable changes to `@reevit/core` will be documented in this file.
 
+## [Unreleased] - 2026-02-04
+
+### 🛠 Improvements
+
+- Added `idempotencyKey` support to `ReevitCheckoutConfig` and `ReevitAPIClient.createPaymentIntent`.
+- Added intent identity + cache helpers to stabilize idempotency and dedupe in-flight requests.
+
 ## [0.5.0] - 2026-01-11
 
 ### 🚀 New Features

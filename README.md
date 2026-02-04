@@ -34,6 +34,7 @@ const { data, error } = await client.createPaymentIntent({
   amount: 5000,
   currency: 'GHS',
   email: 'customer@example.com',
+  idempotencyKey: 'order_12345',
 }, 'card');
 
 if (data) {
@@ -49,6 +50,24 @@ import { formatAmount, validatePhone, detectNetwork } from '@reevit/core';
 console.log(formatAmount(10000, 'GHS')); // "GH₵ 100.00"
 console.log(validatePhone('0241234567')); // true
 console.log(detectNetwork('0241234567')); // "mtn"
+```
+
+### Intent Identity & Idempotency
+
+Core exports helpers to stabilize intent creation and dedupe in-flight requests.
+
+```typescript
+import { resolveIntentIdentity } from '@reevit/core';
+
+const { idempotencyKey, reference } = resolveIntentIdentity({
+  config: {
+    amount: 5000,
+    currency: 'GHS',
+    email: 'customer@example.com',
+    idempotencyKey: 'order_12345',
+  },
+  method: 'card',
+});
 ```
 
 ## License
