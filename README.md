@@ -70,6 +70,13 @@ const { idempotencyKey, reference } = resolveIntentIdentity({
 });
 ```
 
+## Release Notes
+
+### v0.7.0
+
+- Version alignment across all Reevit SDKs
+- Updated shared CSS with redesigned checkout visual system
+
 ## License
 
 MIT © Reevit
