@@ -215,6 +215,8 @@ export interface PaymentIntent {
   recommendedPsp: PSPType;
   /** Available payment methods for this intent */
   availableMethods: PaymentMethod[];
+  /** Provider transaction reference returned by Reevit */
+  providerRefId?: string;
   /** Reference provided or generated */
   reference?: string;
   /** Organization ID (from Reevit backend, required for webhook routing) */
