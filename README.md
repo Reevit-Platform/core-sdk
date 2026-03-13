@@ -26,7 +26,7 @@ If you're building a custom integration or another framework SDK, you can use th
 import { ReevitAPIClient } from '@reevit/core';
 
 const client = new ReevitAPIClient({
-  publicKey: 'pk_test_xxx',
+  publicKey: 'pfk_test_xxx',
 });
 
 // Create a payment intent
