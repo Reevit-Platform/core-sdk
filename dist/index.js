@@ -43,11 +43,7 @@ module.exports = __toCommonJS(index_exports);
 
 // src/api/client.ts
 var API_BASE_URL_PRODUCTION = "https://api.reevit.io";
-var API_BASE_URL_SANDBOX = "https://sandbox-api.reevit.io";
 var DEFAULT_TIMEOUT = 3e4;
-function isSandboxKey(publicKey) {
-  return publicKey.startsWith("pk_test_") || publicKey.startsWith("pk_sandbox_") || publicKey.startsWith("pfk_test_") || publicKey.startsWith("pfk_sandbox_");
-}
 function createPaymentError(response, errorData) {
   return {
     code: errorData.code || "api_error",
@@ -73,7 +69,7 @@ function generateIdempotencyKey(params) {
 var ReevitAPIClient = class {
   constructor(config) {
     this.publicKey = config.publicKey || "";
-    this.baseUrl = config.baseUrl || (config.publicKey && isSandboxKey(config.publicKey) ? API_BASE_URL_SANDBOX : API_BASE_URL_PRODUCTION);
+    this.baseUrl = config.baseUrl || API_BASE_URL_PRODUCTION;
     this.timeout = config.timeout || DEFAULT_TIMEOUT;
   }
   /**
@@ -86,7 +82,7 @@ var ReevitAPIClient = class {
     const headers = {
       "Content-Type": "application/json",
       "X-Reevit-Client": "@reevit/core",
-      "X-Reevit-Client-Version": "0.5.9"
+      "X-Reevit-Client-Version": "0.8.1"
     };
     if (this.publicKey) {
       headers["X-Reevit-Key"] = this.publicKey;
@@ -191,7 +187,10 @@ var ReevitAPIClient = class {
    * Confirms a payment intent using client secret (public endpoint)
    */
   async confirmPaymentIntent(paymentId, clientSecret) {
-    return this.request("POST", `/v1/payments/${paymentId}/confirm-intent?client_secret=${clientSecret}`);
+    return this.request(
+      "POST",
+      `/v1/payments/${paymentId}/confirm-intent?client_secret=${encodeURIComponent(clientSecret)}`
+    );
   }
   /**
    * Cancels a payment intent
