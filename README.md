@@ -42,6 +42,33 @@ if (data) {
 }
 ```
 
+### Loading a checkout session
+
+Browser SDKs should prefer server-created checkout sessions. Use the session secret returned by your backend to load the payment intent without exposing private API credentials.
+
+```typescript
+const { data, error } = await client.getCheckoutSession('cs_session_secret');
+
+if (data) {
+  console.log('Ready to render:', data.payment_intent.id);
+}
+```
+
+### Error handling
+
+Core returns a consistent `{ data, error }` result. Errors include `code`, `message`, `recoverable`, and `details.httpStatus` when the API returns a status code.
+
+```typescript
+const result = await client.getCheckoutSession('cs_session_secret');
+
+if (result.error) {
+  if (result.error.recoverable) {
+    // show retry UI
+  }
+  console.error(result.error.code, result.error.message);
+}
+```
+
 ### Using Utilities
 
 ```typescript
@@ -72,7 +99,7 @@ const { idempotencyKey, reference } = resolveIntentIdentity({
 
 ## Release Notes
 
-### v0.7.0
+### v0.9.0
 
 - Version alignment across all Reevit SDKs
 - Updated shared CSS with redesigned checkout visual system

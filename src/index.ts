@@ -7,13 +7,17 @@
 export {
   ReevitAPIClient,
   createReevitClient,
+  createPaymentError,
   generateIdempotencyKey,
+  isPaymentError,
   type ReevitAPIClientConfig,
   type CreatePaymentIntentRequest,
   type PaymentIntentResponse,
+  type CheckoutSessionResponse,
   type PaymentDetailResponse,
   type ConfirmPaymentRequest,
   type APIErrorResponse,
+  type ReevitAPIResult,
 } from './api/client';
 
 // Types

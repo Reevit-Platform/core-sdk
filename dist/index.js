@@ -26,6 +26,7 @@ __export(index_exports, {
   clearIntentCacheEntry: () => clearIntentCacheEntry,
   cn: () => cn,
   createInitialState: () => createInitialState,
+  createPaymentError: () => createPaymentError,
   createReevitClient: () => createReevitClient,
   createThemeVariables: () => createThemeVariables,
   detectCountryFromCurrency: () => detectCountryFromCurrency,
@@ -35,6 +36,7 @@ __export(index_exports, {
   generateIdempotencyKey: () => generateIdempotencyKey,
   generateReference: () => generateReference,
   getIntentCacheEntry: () => getIntentCacheEntry,
+  isPaymentError: () => isPaymentError,
   reevitReducer: () => reevitReducer,
   resolveIntentIdentity: () => resolveIntentIdentity,
   validatePhone: () => validatePhone
@@ -44,15 +46,24 @@ module.exports = __toCommonJS(index_exports);
 // src/api/client.ts
 var API_BASE_URL_PRODUCTION = "https://api.reevit.io";
 var DEFAULT_TIMEOUT = 3e4;
+var hasWarnedAboutLiveBrowserIntents = false;
 function createPaymentError(response, errorData) {
   return {
     code: errorData.code || "api_error",
     message: errorData.message || "An unexpected error occurred",
+    recoverable: isRecoverableStatus(response.status),
     details: {
       httpStatus: response.status,
+      requestId: response.headers.get("x-request-id") || response.headers.get("x-reevit-request-id") || void 0,
       ...errorData.details
     }
   };
+}
+function isPaymentError(error) {
+  return typeof error === "object" && error !== null && "code" in error && "message" in error;
+}
+function isRecoverableStatus(status) {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 function generateIdempotencyKey(params) {
   const sortedKeys = Object.keys(params).sort();
@@ -82,7 +93,7 @@ var ReevitAPIClient = class {
     const headers = {
       "Content-Type": "application/json",
       "X-Reevit-Client": "@reevit/core",
-      "X-Reevit-Client-Version": "0.8.1"
+      "X-Reevit-Client-Version": "0.9.0"
     };
     if (this.publicKey) {
       headers["X-Reevit-Key"] = this.publicKey;
@@ -112,7 +123,8 @@ var ReevitAPIClient = class {
           return {
             error: {
               code: "request_timeout",
-              message: "The request timed out. Please try again."
+              message: "The request timed out. Please try again.",
+              recoverable: true
             }
           };
         }
@@ -120,7 +132,8 @@ var ReevitAPIClient = class {
           return {
             error: {
               code: "network_error",
-              message: "Unable to connect to Reevit. Please check your internet connection."
+              message: "Unable to connect to Reevit. Please check your internet connection.",
+              recoverable: true
             }
           };
         }
@@ -128,7 +141,8 @@ var ReevitAPIClient = class {
       return {
         error: {
           code: "unknown_error",
-          message: "An unexpected error occurred. Please try again."
+          message: "An unexpected error occurred. Please try again.",
+          recoverable: true
         }
       };
     }
@@ -137,6 +151,21 @@ var ReevitAPIClient = class {
    * Creates a payment intent
    */
   async createPaymentIntent(config, method, country = "GH", options) {
+    if (this.publicKey.startsWith("pfk_live_") && !hasWarnedAboutLiveBrowserIntents && typeof console !== "undefined") {
+      hasWarnedAboutLiveBrowserIntents = true;
+      console.warn(
+        "Creating live payment intents from the browser is deprecated. Create a checkout session on your server and pass sessionSecret to the browser SDK instead."
+      );
+    }
+    if (typeof config.amount !== "number" || !config.currency) {
+      return {
+        error: {
+          code: "invalid_checkout_config",
+          message: "amount and currency are required when creating a payment intent in the browser.",
+          recoverable: false
+        }
+      };
+    }
     const metadata = { ...config.metadata };
     if (config.email) {
       metadata.customer_email = config.email;
@@ -176,6 +205,15 @@ var ReevitAPIClient = class {
    */
   async getPaymentIntent(paymentId) {
     return this.request("GET", `/v1/payments/${paymentId}`);
+  }
+  /**
+   * Retrieves a server-created checkout session using its public session secret.
+   */
+  async getCheckoutSession(sessionSecret) {
+    return this.request(
+      "GET",
+      `/v1/checkout/sessions/${encodeURIComponent(sessionSecret)}`
+    );
   }
   /**
    * Confirms a payment after PSP callback
@@ -395,6 +433,12 @@ function setIntentCacheEntryInternal(key, update) {
 }
 function buildIdempotencyPayload(options) {
   const { config, method, preferredProvider, allowedProviders, publicKey } = options;
+  if (config.sessionSecret) {
+    return {
+      sessionSecret: config.sessionSecret,
+      publicKey: publicKey || config.publicKey || ""
+    };
+  }
   const payload = {
     amount: config.amount,
     currency: config.currency,
@@ -484,6 +528,7 @@ function reevitReducer(state, action) {
   clearIntentCacheEntry,
   cn,
   createInitialState,
+  createPaymentError,
   createReevitClient,
   createThemeVariables,
   detectCountryFromCurrency,
@@ -493,6 +538,7 @@ function reevitReducer(state, action) {
   generateIdempotencyKey,
   generateReference,
   getIntentCacheEntry,
+  isPaymentError,
   reevitReducer,
   resolveIntentIdentity,
   validatePhone

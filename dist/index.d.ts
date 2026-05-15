@@ -10,10 +10,12 @@ type PaymentSource = 'payment_link' | 'api' | 'subscription';
 interface ReevitCheckoutConfig {
     /** Your Reevit public key (required for API-created intents; omit for payment links) */
     publicKey?: string;
-    /** Amount in the smallest currency unit (e.g., pesewas for GHS) */
-    amount: number;
-    /** Currency code (e.g., 'GHS', 'NGN', 'USD') */
-    currency: string;
+    /** Server-created checkout session secret. Prefer this for browser checkouts. */
+    sessionSecret?: string;
+    /** Amount in the smallest currency unit (e.g., pesewas for GHS). Required unless sessionSecret or initialPaymentIntent is provided. */
+    amount?: number;
+    /** Currency code (e.g., 'GHS', 'NGN', 'USD'). Required unless sessionSecret or initialPaymentIntent is provided. */
+    currency?: string;
     /** Customer email address */
     email?: string;
     /** Customer phone number (required for mobile money) */
@@ -247,6 +249,7 @@ interface PaymentIntentResponse {
     provider_ref_id?: string;
     status: string;
     client_secret: string;
+    session_secret?: string;
     psp_public_key: string;
     psp_credentials?: {
         merchantAccount?: string | number;
@@ -266,6 +269,13 @@ interface PaymentIntentResponse {
         countries?: string[];
     }>;
     branding?: Record<string, unknown>;
+}
+interface CheckoutSessionResponse {
+    id: string;
+    client_secret: string;
+    session_secret: string;
+    payment_intent: PaymentIntentResponse;
+    expires_at?: string;
 }
 interface ConfirmPaymentRequest {
     provider_ref_id: string;
@@ -298,8 +308,15 @@ interface PaymentDetailResponse {
 interface APIErrorResponse {
     code: string;
     message: string;
-    details?: Record<string, string>;
+    details?: Record<string, unknown>;
 }
+type ReevitAPIResult<T> = {
+    data: T;
+    error?: never;
+} | {
+    data?: never;
+    error: PaymentError;
+};
 interface ReevitAPIClientConfig {
     /** Your Reevit public key */
     publicKey?: string;
@@ -308,6 +325,11 @@ interface ReevitAPIClientConfig {
     /** Request timeout in milliseconds */
     timeout?: number;
 }
+/**
+ * Creates a PaymentError from an API error response
+ */
+declare function createPaymentError(response: Response, errorData: APIErrorResponse): PaymentError;
+declare function isPaymentError(error: unknown): error is PaymentError;
 /**
  * Generates a deterministic idempotency key based on input parameters
  * Uses a simple hash function suitable for browser environments
@@ -342,6 +364,13 @@ declare class ReevitAPIClient {
      */
     getPaymentIntent(paymentId: string): Promise<{
         data?: PaymentDetailResponse;
+        error?: PaymentError;
+    }>;
+    /**
+     * Retrieves a server-created checkout session using its public session secret.
+     */
+    getCheckoutSession(sessionSecret: string): Promise<{
+        data?: CheckoutSessionResponse;
         error?: PaymentError;
     }>;
     /**
@@ -494,4 +523,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type IntentCacheEntry, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cacheIntentPromise, cacheIntentResponse, clearIntentCacheEntry, cn, createInitialState, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, getIntentCacheEntry, reevitReducer, resolveIntentIdentity, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutSessionResponse, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type IntentCacheEntry, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAPIResult, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cacheIntentPromise, cacheIntentResponse, clearIntentCacheEntry, cn, createInitialState, createPaymentError, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, getIntentCacheEntry, isPaymentError, reevitReducer, resolveIntentIdentity, validatePhone };
