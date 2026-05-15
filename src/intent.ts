@@ -60,6 +60,13 @@ function setIntentCacheEntryInternal(key: string, update: Partial<IntentCacheEnt
 
 function buildIdempotencyPayload(options: IntentIdentityOptions): Record<string, unknown> {
   const { config, method, preferredProvider, allowedProviders, publicKey } = options;
+  if (config.sessionSecret) {
+    return {
+      sessionSecret: config.sessionSecret,
+      publicKey: publicKey || config.publicKey || '',
+    };
+  }
+
   const payload: Record<string, unknown> = {
     amount: config.amount,
     currency: config.currency,
