@@ -8,6 +8,21 @@ The foundation for all Reevit payment SDKs. It provides the shared API client, s
 npm install @reevit/core
 ```
 
+## Compatibility
+
+`@reevit/core` is a regular `dependencies` entry of each framework SDK, so it is
+installed for you. Install it directly only when you are building against the
+low-level API.
+
+| `@reevit/core` | Required by |
+|---|---|
+| 0.9.x | `@reevit/react` 0.9.x–0.10.x, `@reevit/vue` 0.9.x–0.10.x, `@reevit/svelte` 0.9.x–0.10.x |
+
+On a `0.x` package a caret range pins the **minor**, not the major:
+`^0.9.0` resolves to `>=0.9.0 <0.10.0`. A future `@reevit/core` 0.10.0 is
+therefore not picked up automatically — the React, Vue and Svelte manifests
+have to be bumped together in the same release.
+
 ## Features
 
 - **ReevitAPIClient**: A lightweight, promise-based client for interacting with the Reevit backend.
