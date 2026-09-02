@@ -46,6 +46,8 @@ export type {
 // Utilities
 export {
   formatAmount,
+  currencyExponent,
+  toMinorUnits,
   generateReference,
   validatePhone,
   formatPhone,
