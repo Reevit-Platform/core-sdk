@@ -5,6 +5,10 @@ on:
     types: [published]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write # npm trusted publishing (OIDC)
+
 jobs:
   publish:
     name: Publish
@@ -13,12 +17,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # node 24 ships npm 11.x; OIDC publish needs npm 11.5+.
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
+
+      # An npm version number can never be reused, so publishing one that does
+      # not match the release is unrecoverable. tag_name goes through env
+      # rather than being interpolated into the script, since it is arbitrary
+      # text. workflow_dispatch has no release, hence the `if`.
+      - name: Guard package version matches the release tag
+        if: github.event_name == 'release'
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          TAG_VERSION="${TAG_NAME#v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "package.json is $PKG_VERSION but the release tag is $TAG_VERSION — fix one before releasing" >&2
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm ci
@@ -58,7 +79,14 @@ jobs:
               sys.exit(1)
           PY
 
+      # Publishes via trusted publishing (OIDC) — no token, no OTP, and
+      # provenance is attached automatically because this repo is public.
+      # One-time setup: npmjs.com -> @reevit/core -> Settings -> Trusted
+      # Publisher -> GitHub Actions -> Reevit-Platform/core-sdk, workflow
+      # publish.yml. Do not reintroduce NODE_AUTH_TOKEN: setup-node writes
+      # whatever it is given into .npmrc, and any credential there suppresses
+      # OIDC entirely — including an expired one, which is how 0.9.1 failed.
       - name: Publish to npm
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm install -g npm@latest
+          npm publish --access public
