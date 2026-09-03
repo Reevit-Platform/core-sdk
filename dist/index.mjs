@@ -32,6 +32,95 @@ function generateIdempotencyKey(params) {
   const timeBucket = Math.floor(Date.now() / (5 * 60 * 1e3));
   return `reevit_${timeBucket}_${hashHex}`;
 }
+var IDEMPOTENCY_STORE_PREFIX = "reevit:idem:";
+var memoryAttemptKeys = /* @__PURE__ */ new Map();
+function getSessionStore() {
+  try {
+    const storage = globalThis.sessionStorage;
+    if (!storage) {
+      return null;
+    }
+    const probe = `${IDEMPOTENCY_STORE_PREFIX}probe`;
+    storage.setItem(probe, "1");
+    storage.removeItem(probe);
+    return storage;
+  } catch {
+    return null;
+  }
+}
+function newIdempotencyKey() {
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === "function") {
+    try {
+      return cryptoObj.randomUUID();
+    } catch {
+    }
+  }
+  const bytes = new Uint8Array(16);
+  if (cryptoObj && typeof cryptoObj.getRandomValues === "function") {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = bytes[6] & 15 | 64;
+  bytes[8] = bytes[8] & 63 | 128;
+  const hex = [];
+  for (let i = 0; i < bytes.length; i++) {
+    hex.push(bytes[i].toString(16).padStart(2, "0"));
+  }
+  return [
+    hex.slice(0, 4).join(""),
+    hex.slice(4, 6).join(""),
+    hex.slice(6, 8).join(""),
+    hex.slice(8, 10).join(""),
+    hex.slice(10, 16).join("")
+  ].join("-");
+}
+function attemptIdempotencyKey(lookupKey) {
+  const storageKey = `${IDEMPOTENCY_STORE_PREFIX}${lookupKey}`;
+  const store = getSessionStore();
+  if (store) {
+    try {
+      const existing2 = store.getItem(storageKey);
+      if (existing2) {
+        return existing2;
+      }
+      const created2 = newIdempotencyKey();
+      store.setItem(storageKey, created2);
+      return created2;
+    } catch {
+    }
+  }
+  const existing = memoryAttemptKeys.get(storageKey);
+  if (existing) {
+    return existing;
+  }
+  const created = newIdempotencyKey();
+  memoryAttemptKeys.set(storageKey, created);
+  return created;
+}
+function clearIdempotencyAttemptKeys() {
+  memoryAttemptKeys.clear();
+  const store = getSessionStore();
+  if (!store) {
+    return;
+  }
+  try {
+    const keys = [];
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (key && key.startsWith(IDEMPOTENCY_STORE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+    for (const key of keys) {
+      store.removeItem(key);
+    }
+  } catch {
+  }
+}
 var ReevitAPIClient = class {
   constructor(config) {
     this.publicKey = config.publicKey || "";
@@ -48,13 +137,13 @@ var ReevitAPIClient = class {
     const headers = {
       "Content-Type": "application/json",
       "X-Reevit-Client": "@reevit/core",
-      "X-Reevit-Client-Version": "0.9.0"
+      "X-Reevit-Client-Version": "0.9.1"
     };
     if (this.publicKey) {
       headers["X-Reevit-Key"] = this.publicKey;
     }
     if (method === "POST" || method === "PATCH" || method === "PUT") {
-      headers["Idempotency-Key"] = idempotencyKey || (body ? generateIdempotencyKey(body) : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`);
+      headers["Idempotency-Key"] = idempotencyKey || newIdempotencyKey();
     }
     try {
       const response = await fetch(`${this.baseUrl}${path}`, {
@@ -144,7 +233,7 @@ var ReevitAPIClient = class {
         allowed_providers: options?.allowedProviders
       };
     }
-    const idempotencyKey = config.idempotencyKey || generateIdempotencyKey({
+    const idempotencyKey = config.idempotencyKey || attemptIdempotencyKey(generateIdempotencyKey({
       amount: config.amount,
       currency: config.currency,
       customer: config.email || config.metadata?.customerId || "",
@@ -152,7 +241,7 @@ var ReevitAPIClient = class {
       method: method || "",
       provider: options?.preferredProviders?.[0] || options?.allowedProviders?.[0] || "",
       publicKey: this.publicKey
-    });
+    }));
     return this.request("POST", "/v1/payments/intents", request, idempotencyKey);
   }
   /**
@@ -221,25 +310,62 @@ function createReevitClient(config) {
 }
 
 // src/utils.ts
-function formatAmount(amount, currency) {
-  const majorUnit = amount / 100;
-  const currencyFormats = {
-    GHS: { locale: "en-GH", minimumFractionDigits: 2 },
-    NGN: { locale: "en-NG", minimumFractionDigits: 2 },
-    KES: { locale: "en-KE", minimumFractionDigits: 2 },
-    USD: { locale: "en-US", minimumFractionDigits: 2 },
-    EUR: { locale: "de-DE", minimumFractionDigits: 2 },
-    GBP: { locale: "en-GB", minimumFractionDigits: 2 }
-  };
-  const format = currencyFormats[currency.toUpperCase()] || { locale: "en-US", minimumFractionDigits: 2 };
+var CURRENCY_LOCALES = {
+  GHS: "en-GH",
+  NGN: "en-NG",
+  KES: "en-KE",
+  USD: "en-US",
+  EUR: "de-DE",
+  GBP: "en-GB"
+};
+var ZERO_DECIMAL_CURRENCIES = /* @__PURE__ */ new Set([
+  "XOF",
+  "XAF",
+  "RWF",
+  "UGX",
+  "JPY",
+  "KRW",
+  "BIF",
+  "GNF",
+  "VND",
+  "CLP",
+  "ISK",
+  "KMF",
+  "DJF",
+  "PYG",
+  "MGA"
+]);
+function currencyExponent(currency) {
+  const code = (currency || "").toUpperCase();
   try {
-    return new Intl.NumberFormat(format.locale, {
+    const digits = new Intl.NumberFormat("en", {
       style: "currency",
-      currency: currency.toUpperCase(),
-      minimumFractionDigits: format.minimumFractionDigits
+      currency: code
+    }).resolvedOptions().maximumFractionDigits;
+    if (typeof digits === "number" && Number.isFinite(digits)) {
+      return digits;
+    }
+  } catch {
+  }
+  return ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2;
+}
+function toMinorUnits(major, currency) {
+  return Math.round(major * 10 ** currencyExponent(currency));
+}
+function formatAmount(amount, currency) {
+  const code = (currency || "").toUpperCase();
+  const exponent = currencyExponent(code);
+  const majorUnit = amount / 10 ** exponent;
+  const locale = CURRENCY_LOCALES[code] || "en-US";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: code,
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent
     }).format(majorUnit);
   } catch {
-    return `${currency} ${majorUnit.toFixed(2)}`;
+    return `${code} ${majorUnit.toFixed(exponent)}`;
   }
 }
 function generateReference(prefix = "reevit") {
@@ -357,33 +483,50 @@ function detectCountryFromCurrency(currency) {
 // src/intent.ts
 var INTENT_CACHE_TTL_MS = 10 * 60 * 1e3;
 var intentCache = /* @__PURE__ */ new Map();
+var lookupKeyByWireKey = /* @__PURE__ */ new Map();
+function forgetKey(lookupKey) {
+  const entry = intentCache.get(lookupKey);
+  if (entry?.idempotencyKey) {
+    lookupKeyByWireKey.delete(entry.idempotencyKey);
+  }
+  intentCache.delete(lookupKey);
+}
+function toLookupKey(key) {
+  return lookupKeyByWireKey.get(key) ?? key;
+}
 function pruneIntentCache(now = Date.now()) {
   for (const [key, entry] of intentCache) {
     if (entry.expiresAt <= now) {
-      intentCache.delete(key);
+      forgetKey(key);
     }
   }
 }
-function getIntentCacheEntryInternal(key) {
-  const entry = intentCache.get(key);
+function getIntentCacheEntryInternal(lookupKey) {
+  const entry = intentCache.get(lookupKey);
   if (!entry) {
     return void 0;
   }
   if (entry.expiresAt <= Date.now()) {
-    intentCache.delete(key);
+    forgetKey(lookupKey);
     return void 0;
   }
   return entry;
 }
-function setIntentCacheEntryInternal(key, update) {
+function setIntentCacheEntryInternal(lookupKey, update) {
   const now = Date.now();
-  const existing = getIntentCacheEntryInternal(key);
+  const existing = getIntentCacheEntryInternal(lookupKey);
   const next = {
     ...existing,
     ...update,
     expiresAt: now + INTENT_CACHE_TTL_MS
   };
-  intentCache.set(key, next);
+  if (existing?.idempotencyKey && existing.idempotencyKey !== next.idempotencyKey) {
+    lookupKeyByWireKey.delete(existing.idempotencyKey);
+  }
+  intentCache.set(lookupKey, next);
+  if (next.idempotencyKey && next.idempotencyKey !== lookupKey) {
+    lookupKeyByWireKey.set(next.idempotencyKey, lookupKey);
+  }
   return next;
 }
 function buildIdempotencyPayload(options) {
@@ -416,24 +559,26 @@ function buildIdempotencyPayload(options) {
 }
 function resolveIntentIdentity(options) {
   pruneIntentCache();
-  const idempotencyKey = options.config.idempotencyKey || generateIdempotencyKey(buildIdempotencyPayload(options));
-  const existing = getIntentCacheEntryInternal(idempotencyKey);
+  const explicitKey = options.config.idempotencyKey;
+  const lookupKey = explicitKey || generateIdempotencyKey(buildIdempotencyPayload(options));
+  const idempotencyKey = explicitKey || attemptIdempotencyKey(lookupKey);
+  const existing = getIntentCacheEntryInternal(lookupKey);
   const reference = options.config.reference || existing?.reference || generateReference();
-  const cacheEntry = setIntentCacheEntryInternal(idempotencyKey, { reference });
-  return { idempotencyKey, reference, cacheEntry };
+  const cacheEntry = setIntentCacheEntryInternal(lookupKey, { reference, idempotencyKey });
+  return { idempotencyKey, lookupKey, reference, cacheEntry };
 }
-function getIntentCacheEntry(idempotencyKey) {
+function getIntentCacheEntry(key) {
   pruneIntentCache();
-  return getIntentCacheEntryInternal(idempotencyKey);
+  return getIntentCacheEntryInternal(toLookupKey(key));
 }
-function cacheIntentPromise(idempotencyKey, promise) {
-  return setIntentCacheEntryInternal(idempotencyKey, { promise });
+function cacheIntentPromise(key, promise) {
+  return setIntentCacheEntryInternal(toLookupKey(key), { promise });
 }
-function cacheIntentResponse(idempotencyKey, response) {
-  return setIntentCacheEntryInternal(idempotencyKey, { response, promise: void 0 });
+function cacheIntentResponse(key, response) {
+  return setIntentCacheEntryInternal(toLookupKey(key), { response, promise: void 0 });
 }
-function clearIntentCacheEntry(idempotencyKey) {
-  intentCache.delete(idempotencyKey);
+function clearIntentCacheEntry(key) {
+  forgetKey(toLookupKey(key));
 }
 
 // src/state.ts
@@ -477,14 +622,17 @@ function reevitReducer(state, action) {
 }
 export {
   ReevitAPIClient,
+  attemptIdempotencyKey,
   cacheIntentPromise,
   cacheIntentResponse,
+  clearIdempotencyAttemptKeys,
   clearIntentCacheEntry,
   cn,
   createInitialState,
   createPaymentError,
   createReevitClient,
   createThemeVariables,
+  currencyExponent,
   detectCountryFromCurrency,
   detectNetwork,
   formatAmount,
@@ -493,8 +641,10 @@ export {
   generateReference,
   getIntentCacheEntry,
   isPaymentError,
+  newIdempotencyKey,
   reevitReducer,
   resolveIntentIdentity,
+  toMinorUnits,
   validatePhone
 };
 //# sourceMappingURL=index.mjs.map

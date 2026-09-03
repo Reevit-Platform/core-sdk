@@ -9,6 +9,9 @@ export {
   createReevitClient,
   createPaymentError,
   generateIdempotencyKey,
+  newIdempotencyKey,
+  attemptIdempotencyKey,
+  clearIdempotencyAttemptKeys,
   isPaymentError,
   type ReevitAPIClientConfig,
   type CreatePaymentIntentRequest,
@@ -43,6 +46,8 @@ export type {
 // Utilities
 export {
   formatAmount,
+  currencyExponent,
+  toMinorUnits,
   generateReference,
   validatePhone,
   formatPhone,

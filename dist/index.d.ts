@@ -331,11 +331,43 @@ interface ReevitAPIClientConfig {
 declare function createPaymentError(response: Response, errorData: APIErrorResponse): PaymentError;
 declare function isPaymentError(error: unknown): error is PaymentError;
 /**
- * Generates a deterministic idempotency key based on input parameters
- * Uses a simple hash function suitable for browser environments
- * Exported for use by SDK hooks (e.g., payment link flows)
+ * Generates a deterministic **cache/lookup** key from input parameters.
+ *
+ * NEVER SEND THIS ON THE WIRE. It is a 32-bit djb2 hash bucketed into
+ * 5-minute windows, so two unrelated shoppers can collide and be handed each
+ * other's payment intent (and therefore each other's `client_secret`), and a
+ * shopper legitimately buying the same item twice inside one window would be
+ * charged once. Its only job is to identify "the same checkout attempt" inside
+ * a single browser tab so the in-flight intent cache can dedupe a repeated
+ * "Continue" click.
+ *
+ * The value actually sent as `Idempotency-Key` is produced by
+ * {@link newIdempotencyKey} / {@link attemptIdempotencyKey}.
+ *
+ * Exported for use by SDK hooks (e.g. payment link flows).
  */
 declare function generateIdempotencyKey(params: Record<string, unknown>): string;
+/**
+ * Generates a fresh, globally unique `Idempotency-Key` (RFC 4122 v4 UUID).
+ * This is the only value that should ever be sent on the wire.
+ */
+declare function newIdempotencyKey(): string;
+/**
+ * Resolves the stable per-checkout-attempt wire key for a deterministic
+ * lookup key (see {@link generateIdempotencyKey}).
+ *
+ * The first call for a lookup key mints a UUID and stores it in
+ * `sessionStorage` (falling back to a module-level map when storage is
+ * unavailable); every later call in the same tab returns that same UUID, so a
+ * repeated "Continue" click is still deduped by the backend. A different tab,
+ * a different shopper or a cleared store yields a different UUID.
+ */
+declare function attemptIdempotencyKey(lookupKey: string): string;
+/**
+ * Forgets every stored per-attempt key, so the next checkout attempt gets a
+ * fresh `Idempotency-Key`. Call it after a completed checkout (and in tests).
+ */
+declare function clearIdempotencyAttemptKeys(): void;
 /**
  * Reevit API Client
  */
@@ -419,6 +451,19 @@ declare function createReevitClient(config: ReevitAPIClientConfig): ReevitAPICli
  */
 
 /**
+ * Returns how many decimal places a currency's minor unit uses: 2 for GHS and
+ * NGN, 0 for XOF, XAF, RWF, UGX, JPY and friends.
+ *
+ * Dividing every amount by 100 renders a 5,000 XOF charge as "XOF 50.00" while
+ * the shopper is actually charged 5,000 — which is why this exists.
+ */
+declare function currencyExponent(currency: string): number;
+/**
+ * Converts a major-unit amount (what a shopper types) into the minor units the
+ * API expects: `toMinorUnits(45, 'GHS') === 4500`, `toMinorUnits(5000, 'XOF') === 5000`.
+ */
+declare function toMinorUnits(major: number, currency: string): number;
+/**
  * Formats an amount from smallest currency unit to display format
  */
 declare function formatAmount(amount: number, currency: string): string;
@@ -453,6 +498,18 @@ declare function detectCountryFromCurrency(currency: string): string;
 
 /**
  * Intent identity + cache helpers
+ *
+ * Two different keys are in play here and mixing them up is a money bug:
+ *
+ * - the **lookup key** is the deterministic djb2 hash of the checkout
+ *   parameters (`generateIdempotencyKey`). It identifies "the same checkout
+ *   attempt" for the in-flight cache and is never sent to the API.
+ * - the **wire key** is the per-attempt UUID (`attemptIdempotencyKey`) that
+ *   goes out as the `Idempotency-Key` header.
+ *
+ * The cache is keyed by the lookup key and remembers the wire key it minted.
+ * The public helpers accept either key so callers that only ever saw the
+ * `idempotencyKey` field keep working unchanged.
  */
 
 interface IntentIdentityOptions {
@@ -467,16 +524,21 @@ interface IntentCacheEntry {
     response?: PaymentIntentResponse;
     expiresAt: number;
     reference?: string;
+    /** The `Idempotency-Key` sent on the wire for this attempt. */
+    idempotencyKey?: string;
 }
 declare function resolveIntentIdentity(options: IntentIdentityOptions): {
+    /** The value to send as `Idempotency-Key`. */
     idempotencyKey: string;
+    /** The local cache key. Never send this on the wire. */
+    lookupKey: string;
     reference: string;
     cacheEntry?: IntentCacheEntry;
 };
-declare function getIntentCacheEntry(idempotencyKey: string): IntentCacheEntry | undefined;
-declare function cacheIntentPromise(idempotencyKey: string, promise: Promise<PaymentIntentResponse>): IntentCacheEntry;
-declare function cacheIntentResponse(idempotencyKey: string, response: PaymentIntentResponse): IntentCacheEntry;
-declare function clearIntentCacheEntry(idempotencyKey: string): void;
+declare function getIntentCacheEntry(key: string): IntentCacheEntry | undefined;
+declare function cacheIntentPromise(key: string, promise: Promise<PaymentIntentResponse>): IntentCacheEntry;
+declare function cacheIntentResponse(key: string, response: PaymentIntentResponse): IntentCacheEntry;
+declare function clearIntentCacheEntry(key: string): void;
 
 /**
  * Reevit State Machine
@@ -523,4 +585,4 @@ declare function createInitialState(): ReevitState;
  */
 declare function reevitReducer(state: ReevitState, action: ReevitAction): ReevitState;
 
-export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutSessionResponse, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type IntentCacheEntry, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAPIResult, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, cacheIntentPromise, cacheIntentResponse, clearIntentCacheEntry, cn, createInitialState, createPaymentError, createReevitClient, createThemeVariables, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, getIntentCacheEntry, isPaymentError, reevitReducer, resolveIntentIdentity, validatePhone };
+export { type APIErrorResponse, type CardFormData, type CheckoutProviderOption, type CheckoutSessionResponse, type CheckoutState, type ConfirmPaymentRequest, type CreatePaymentIntentRequest, type HubtelSessionResponse, type IntentCacheEntry, type MobileMoneyFormData, type MobileMoneyNetwork, type PSPConfig, type PSPType, type PaymentDetailResponse, type PaymentError, type PaymentIntent, type PaymentIntentResponse, type PaymentMethod, type PaymentResult, type PaymentSource, ReevitAPIClient, type ReevitAPIClientConfig, type ReevitAPIResult, type ReevitAction, type ReevitCheckoutCallbacks, type ReevitCheckoutConfig, type ReevitState, type ReevitTheme, attemptIdempotencyKey, cacheIntentPromise, cacheIntentResponse, clearIdempotencyAttemptKeys, clearIntentCacheEntry, cn, createInitialState, createPaymentError, createReevitClient, createThemeVariables, currencyExponent, detectCountryFromCurrency, detectNetwork, formatAmount, formatPhone, generateIdempotencyKey, generateReference, getIntentCacheEntry, isPaymentError, newIdempotencyKey, reevitReducer, resolveIntentIdentity, toMinorUnits, validatePhone };

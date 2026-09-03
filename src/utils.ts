@@ -5,32 +5,78 @@
 
 import type { MobileMoneyNetwork, ReevitTheme } from './types';
 
+const CURRENCY_LOCALES: Record<string, string> = {
+  GHS: 'en-GH',
+  NGN: 'en-NG',
+  KES: 'en-KE',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+};
+
+/**
+ * Currencies with no minor unit — the API's integer amount *is* the amount.
+ * Used only when `Intl` cannot tell us (old or trimmed ICU builds).
+ * Keep in sync with the reevit CLI's copy of this table.
+ */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  'XOF', 'XAF', 'RWF', 'UGX', 'JPY', 'KRW', 'BIF', 'GNF',
+  'VND', 'CLP', 'ISK', 'KMF', 'DJF', 'PYG', 'MGA',
+]);
+
+/**
+ * Returns how many decimal places a currency's minor unit uses: 2 for GHS and
+ * NGN, 0 for XOF, XAF, RWF, UGX, JPY and friends.
+ *
+ * Dividing every amount by 100 renders a 5,000 XOF charge as "XOF 50.00" while
+ * the shopper is actually charged 5,000 — which is why this exists.
+ */
+export function currencyExponent(currency: string): number {
+  const code = (currency || '').toUpperCase();
+
+  try {
+    const digits = new Intl.NumberFormat('en', {
+      style: 'currency',
+      currency: code,
+    }).resolvedOptions().maximumFractionDigits;
+
+    if (typeof digits === 'number' && Number.isFinite(digits)) {
+      return digits;
+    }
+  } catch {
+    // Unsupported currency code, or an ICU build without currency data.
+  }
+
+  return ZERO_DECIMAL_CURRENCIES.has(code) ? 0 : 2;
+}
+
+/**
+ * Converts a major-unit amount (what a shopper types) into the minor units the
+ * API expects: `toMinorUnits(45, 'GHS') === 4500`, `toMinorUnits(5000, 'XOF') === 5000`.
+ */
+export function toMinorUnits(major: number, currency: string): number {
+  return Math.round(major * 10 ** currencyExponent(currency));
+}
+
 /**
  * Formats an amount from smallest currency unit to display format
  */
 export function formatAmount(amount: number, currency: string): string {
-  const majorUnit = amount / 100;
-
-  const currencyFormats: Record<string, { locale: string; minimumFractionDigits: number }> = {
-    GHS: { locale: 'en-GH', minimumFractionDigits: 2 },
-    NGN: { locale: 'en-NG', minimumFractionDigits: 2 },
-    KES: { locale: 'en-KE', minimumFractionDigits: 2 },
-    USD: { locale: 'en-US', minimumFractionDigits: 2 },
-    EUR: { locale: 'de-DE', minimumFractionDigits: 2 },
-    GBP: { locale: 'en-GB', minimumFractionDigits: 2 },
-  };
-
-  const format = currencyFormats[currency.toUpperCase()] || { locale: 'en-US', minimumFractionDigits: 2 };
+  const code = (currency || '').toUpperCase();
+  const exponent = currencyExponent(code);
+  const majorUnit = amount / 10 ** exponent;
+  const locale = CURRENCY_LOCALES[code] || 'en-US';
 
   try {
-    return new Intl.NumberFormat(format.locale, {
+    return new Intl.NumberFormat(locale, {
       style: 'currency',
-      currency: currency.toUpperCase(),
-      minimumFractionDigits: format.minimumFractionDigits,
+      currency: code,
+      minimumFractionDigits: exponent,
+      maximumFractionDigits: exponent,
     }).format(majorUnit);
   } catch {
     // Fallback for unsupported currencies
-    return `${currency} ${majorUnit.toFixed(2)}`;
+    return `${code} ${majorUnit.toFixed(exponent)}`;
   }
 }
 

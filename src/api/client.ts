@@ -143,14 +143,25 @@ export function isPaymentError(error: unknown): error is PaymentError {
   return typeof error === 'object' && error !== null && 'code' in error && 'message' in error;
 }
 
-function isRecoverableStatus(status: number): boolean {
+export function isRecoverableStatus(status: number): boolean {
   return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500;
 }
 
 /**
- * Generates a deterministic idempotency key based on input parameters
- * Uses a simple hash function suitable for browser environments
- * Exported for use by SDK hooks (e.g., payment link flows)
+ * Generates a deterministic **cache/lookup** key from input parameters.
+ *
+ * NEVER SEND THIS ON THE WIRE. It is a 32-bit djb2 hash bucketed into
+ * 5-minute windows, so two unrelated shoppers can collide and be handed each
+ * other's payment intent (and therefore each other's `client_secret`), and a
+ * shopper legitimately buying the same item twice inside one window would be
+ * charged once. Its only job is to identify "the same checkout attempt" inside
+ * a single browser tab so the in-flight intent cache can dedupe a repeated
+ * "Continue" click.
+ *
+ * The value actually sent as `Idempotency-Key` is produced by
+ * {@link newIdempotencyKey} / {@link attemptIdempotencyKey}.
+ *
+ * Exported for use by SDK hooks (e.g. payment link flows).
  */
 export function generateIdempotencyKey(params: Record<string, unknown>): string {
   // Create a stable string representation of the parameters
@@ -174,6 +185,133 @@ export function generateIdempotencyKey(params: Record<string, unknown>): string 
   const timeBucket = Math.floor(Date.now() / (5 * 60 * 1000));
 
   return `reevit_${timeBucket}_${hashHex}`;
+}
+
+const IDEMPOTENCY_STORE_PREFIX = 'reevit:idem:';
+
+/** Fallback store for SSR / privacy mode, where `sessionStorage` is unusable. */
+const memoryAttemptKeys = new Map<string, string>();
+
+function getSessionStore(): Storage | null {
+  try {
+    const storage = (globalThis as { sessionStorage?: Storage }).sessionStorage;
+    if (!storage) {
+      return null;
+    }
+    // Safari private mode and some embedded webviews throw on write.
+    const probe = `${IDEMPOTENCY_STORE_PREFIX}probe`;
+    storage.setItem(probe, '1');
+    storage.removeItem(probe);
+    return storage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Generates a fresh, globally unique `Idempotency-Key` (RFC 4122 v4 UUID).
+ * This is the only value that should ever be sent on the wire.
+ */
+export function newIdempotencyKey(): string {
+  const cryptoObj = (globalThis as { crypto?: Crypto }).crypto;
+
+  if (cryptoObj && typeof cryptoObj.randomUUID === 'function') {
+    try {
+      return cryptoObj.randomUUID();
+    } catch {
+      // fall through to the manual generator
+    }
+  }
+
+  const bytes = new Uint8Array(16);
+  if (cryptoObj && typeof cryptoObj.getRandomValues === 'function') {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+  const hex: string[] = [];
+  for (let i = 0; i < bytes.length; i++) {
+    hex.push(bytes[i].toString(16).padStart(2, '0'));
+  }
+
+  return [
+    hex.slice(0, 4).join(''),
+    hex.slice(4, 6).join(''),
+    hex.slice(6, 8).join(''),
+    hex.slice(8, 10).join(''),
+    hex.slice(10, 16).join(''),
+  ].join('-');
+}
+
+/**
+ * Resolves the stable per-checkout-attempt wire key for a deterministic
+ * lookup key (see {@link generateIdempotencyKey}).
+ *
+ * The first call for a lookup key mints a UUID and stores it in
+ * `sessionStorage` (falling back to a module-level map when storage is
+ * unavailable); every later call in the same tab returns that same UUID, so a
+ * repeated "Continue" click is still deduped by the backend. A different tab,
+ * a different shopper or a cleared store yields a different UUID.
+ */
+export function attemptIdempotencyKey(lookupKey: string): string {
+  const storageKey = `${IDEMPOTENCY_STORE_PREFIX}${lookupKey}`;
+  const store = getSessionStore();
+
+  if (store) {
+    try {
+      const existing = store.getItem(storageKey);
+      if (existing) {
+        return existing;
+      }
+      const created = newIdempotencyKey();
+      store.setItem(storageKey, created);
+      return created;
+    } catch {
+      // fall through to the in-memory store
+    }
+  }
+
+  const existing = memoryAttemptKeys.get(storageKey);
+  if (existing) {
+    return existing;
+  }
+  const created = newIdempotencyKey();
+  memoryAttemptKeys.set(storageKey, created);
+  return created;
+}
+
+/**
+ * Forgets every stored per-attempt key, so the next checkout attempt gets a
+ * fresh `Idempotency-Key`. Call it after a completed checkout (and in tests).
+ */
+export function clearIdempotencyAttemptKeys(): void {
+  memoryAttemptKeys.clear();
+
+  const store = getSessionStore();
+  if (!store) {
+    return;
+  }
+
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < store.length; i++) {
+      const key = store.key(i);
+      if (key && key.startsWith(IDEMPOTENCY_STORE_PREFIX)) {
+        keys.push(key);
+      }
+    }
+    for (const key of keys) {
+      store.removeItem(key);
+    }
+  } catch {
+    // nothing else we can do
+  }
 }
 
 /**
@@ -207,16 +345,16 @@ export class ReevitAPIClient {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Reevit-Client': '@reevit/core',
-      'X-Reevit-Client-Version': '0.9.0',
+      'X-Reevit-Client-Version': '0.9.1',
     };
     if (this.publicKey) {
       headers['X-Reevit-Key'] = this.publicKey;
     }
 
     if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
-      // Use provided deterministic key, or generate one based on request body
-      headers['Idempotency-Key'] = idempotencyKey ||
-        (body ? generateIdempotencyKey(body as Record<string, unknown>) : `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`);
+      // Never derive the wire key from the request body: a body hash collides
+      // across unrelated shoppers. Fall back to a fresh UUID instead.
+      headers['Idempotency-Key'] = idempotencyKey || newIdempotencyKey();
     }
 
     try {
@@ -331,9 +469,11 @@ export class ReevitAPIClient {
       };
     }
 
-    // Generate a deterministic idempotency key based on payment parameters
-    // This ensures that duplicate requests for the same payment return the same intent
-    const idempotencyKey = config.idempotencyKey || generateIdempotencyKey({
+    // The deterministic hash identifies this checkout attempt *locally*; the
+    // key we put on the wire is a UUID minted once per attempt and reused for
+    // the life of the tab, so a repeated "Continue" click still dedupes while
+    // two unrelated shoppers can never share a key.
+    const idempotencyKey = config.idempotencyKey || attemptIdempotencyKey(generateIdempotencyKey({
       amount: config.amount,
       currency: config.currency,
       customer: config.email || config.metadata?.customerId || '',
@@ -341,7 +481,7 @@ export class ReevitAPIClient {
       method: method || '',
       provider: options?.preferredProviders?.[0] || options?.allowedProviders?.[0] || '',
       publicKey: this.publicKey,
-    });
+    }));
 
     return this.request<PaymentIntentResponse>('POST', '/v1/payments/intents', request, idempotencyKey);
   }
