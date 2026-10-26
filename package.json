@@ -24,13 +24,16 @@
   },
   "keywords": [
     "reevit",
+    "payment-orchestration",
     "payments",
     "africa",
+    "ghana",
+    "mobile-money",
     "sdk"
   ],
-  "author": "Reevit",
+  "author": "Reevit <support@reevit.io> (https://reevit.io)",
   "license": "MIT",
-  "homepage": "https://github.com/Reevit-Platform/core#readme",
+  "homepage": "https://reevit.io",
   "repository": {
     "type": "git",
     "url": "https://github.com/Reevit-Platform/core.git"
